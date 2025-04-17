@@ -17,6 +17,7 @@ from python_adaptive_control.vrft import VRFT
 from python_adaptive_control.pid_controller import DiscretePID_Controller
 from sample.simulation_plotter import SimulationPlotter
 from sample.sampler import Sampler
+from sample.sampler import PulseGenerator
 
 # design requirements
 # sample time
@@ -39,19 +40,14 @@ Ki_old = 1.0
 Kd_old = 0.1
 pid_controller_old = DiscretePID_Controller(Ts, Kp_old, Ki_old, Kd_old)
 
-# input signal
-input_points = np.array([
-    [0.0, 1.0],
-    [2.0, 1.0],
-    [2.0, 0.0],
-    [4.0, 0.0],
-    [4.0, 1.0],
-    [6.0, 1.0],
-    [6.0, 0.0],
-    [8.0, 0.0],
-    [8.0, 1.0],
-    [10.0, 1.0]
-])
+
+input_points = PulseGenerator.generate_pulse_points(
+    start_time=0.0,
+    period=4.0,
+    pulse_width=50.0,
+    pulse_amplitude=1.0,
+    duration=Te,
+)
 
 _, input_values = Sampler.create_periodical(input_points, 0.0, Te, Ts)
 
