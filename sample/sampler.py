@@ -50,7 +50,7 @@ class Sampler:
 
 class PulseGenerator:
     @staticmethod
-    def generate_pulse_points(start_time, period, pulse_width, pulse_amplitude, duration):
+    def generate_pulse_points(start_time, period, pulse_width, pulse_amplitude, duration, number_of_pulse=np.inf):
         """
         Generate pulse points for a pulse signal.
 
@@ -60,12 +60,18 @@ class PulseGenerator:
             pulse_width (float): The width of the pulse as a percentage of the period [%].
             pulse_amplitude (float): The amplitude of the pulse.
             duration (float): Total duration of the signal [s].
+            number_of_pulse (int): Number of pulses to generate. Default is np.inf for infinite pulses.
 
         Returns:
             np.ndarray: Array of input points with columns [time, value].
         """
         time_points = []
         value_points = []
+        pulse_count = 0
+
+        if start_time > 0.0:
+            time_points.append(0.0)
+            value_points.append(0.0)
 
         current_time = start_time
         while current_time <= duration:
@@ -90,8 +96,34 @@ class PulseGenerator:
             pulse_off_duration = period - pulse_on_duration
             current_time += pulse_off_duration
 
+            pulse_count += 1
+            if pulse_count >= number_of_pulse:
+                break
+
         if time_points[-1] < duration:
             time_points.append(duration)
             value_points.append(value_points[-1])
 
         return np.array(list(zip(time_points, value_points)))
+
+    @staticmethod
+    def sample_pulse(sampling_interval, start_time, period, pulse_width, pulse_amplitude, duration, number_of_pulse=np.inf):
+        """
+        Sample the pulse signal based on the provided parameters.
+
+        Parameters:
+            sampling_interval (float): Sampling interval [s].
+            start_time (float): The start time of the pulse [s].
+            period (float): The period of the pulse [s].
+            pulse_width (float): The width of the pulse as a percentage of the period [%].
+            pulse_amplitude (float): The amplitude of the pulse.
+            duration (float): Total duration of the signal [s].
+            number_of_pulse (int): Number of pulses to generate. Default is np.inf for infinite pulses.
+
+        Returns:
+            np.ndarray: Array of sampled points with columns [time, value].
+        """
+        input_points = PulseGenerator.generate_pulse_points(
+            start_time, period, pulse_width, pulse_amplitude, duration, number_of_pulse)
+
+        return Sampler.create_periodical(input_points, 0.0, duration, sampling_interval)

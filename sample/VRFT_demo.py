@@ -41,15 +41,14 @@ Kd_old = 0.1
 pid_controller_old = DiscretePID_Controller(Ts, Kp_old, Ki_old, Kd_old)
 
 
-input_points = PulseGenerator.generate_pulse_points(
+_, input_values = PulseGenerator.sample_pulse(
+    sampling_interval=Ts,
     start_time=0.0,
     period=4.0,
     pulse_width=50.0,
     pulse_amplitude=1.0,
     duration=Te,
 )
-
-_, input_values = Sampler.create_periodical(input_points, 0.0, Te, Ts)
 
 # get input and output signals
 # M sequence signal
