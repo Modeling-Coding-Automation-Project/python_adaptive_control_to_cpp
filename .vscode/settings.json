@@ -73,10 +73,14 @@
         "sstream": "cpp",
         "cinttypes": "cpp"
     },
-    "editor.defaultFormatter": "ms-python.autopep8",
-    "editor.formatOnSave": true,
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8",
+        "editor.formatOnSave": true
+    },
     "autopep8.args": [
         "--ignore",
         "E402"
-    ]
+    ],
+    "editor.defaultFormatter": "xaver.clang-format",
+    "editor.formatOnSave": true,
 }
