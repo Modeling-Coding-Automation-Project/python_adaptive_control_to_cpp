@@ -3,8 +3,8 @@
 
 #include "common.hpp"
 #include "filter.hpp"
+#include "frit.hpp"
 #include "least_squares.hpp"
 #include "vrft.hpp"
-#include "frit.hpp"
 
 #endif

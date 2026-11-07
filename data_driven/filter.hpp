@@ -13,7 +13,8 @@ template <typename T, std::size_t Order> class FilterState;
  * cancellation is performed; a pure delay cannot be inverted causally.
  */
 template <typename T, std::size_t Order> struct RationalFilter {
-  static_assert(std::is_floating_point<T>::value, "Use a floating point scalar type");
+  static_assert(std::is_floating_point<T>::value,
+                "Use a floating point scalar type");
   typedef std::array<T, Order + 1> Coefficients;
   Coefficients numerator;
   Coefficients denominator;
@@ -35,23 +36,28 @@ template <typename T, std::size_t Order> struct RationalFilter {
   Status apply(const std::array<T, N> &input, std::array<T, N> &output) const {
     static_assert(N > 0, "A signal must contain at least one sample");
     const Status validity = validate();
-    if (validity != Status::SUCCESS) return validity;
-    if (!detail::all_finite(input)) return Status::NON_FINITE;
+    if (validity != Status::SUCCESS)
+      return validity;
+    if (!detail::all_finite(input))
+      return Status::NON_FINITE;
     Coefficients b, a;
     for (std::size_t j = 0; j <= Order; ++j) {
       b[j] = numerator[j] / denominator[0];
       a[j] = denominator[j] / denominator[0];
     }
-    if (!detail::all_finite(b) || !detail::all_finite(a)) return Status::NON_FINITE;
+    if (!detail::all_finite(b) || !detail::all_finite(a))
+      return Status::NON_FINITE;
     // Transposed direct form II: only Order state scalars, no heap storage.
     std::array<T, Order + 1> state = {};
     for (std::size_t k = 0; k < N; ++k) {
       const T sample = input[k]; // in-place input/output is supported
       const T value = b[0] * sample + state[0];
-      if (!detail::finite(value)) return Status::NON_FINITE;
+      if (!detail::finite(value))
+        return Status::NON_FINITE;
       for (std::size_t j = 0; j < Order; ++j) {
         state[j] = state[j + 1] + b[j + 1] * sample - a[j + 1] * value;
-        if (!detail::finite(state[j])) return Status::NON_FINITE;
+        if (!detail::finite(state[j]))
+          return Status::NON_FINITE;
       }
       output[k] = value;
     }
@@ -60,8 +66,10 @@ template <typename T, std::size_t Order> struct RationalFilter {
 
   Status inverse(RationalFilter &output) const {
     const Status validity = validate();
-    if (validity != Status::SUCCESS) return validity;
-    if (numerator[0] == T(0)) return Status::SINGULAR_INVERSE;
+    if (validity != Status::SUCCESS)
+      return validity;
+    if (numerator[0] == T(0))
+      return Status::SINGULAR_INVERSE;
     output = RationalFilter(denominator, numerator);
     return Status::SUCCESS;
   }
@@ -75,30 +83,37 @@ template <typename T, std::size_t Order> class FilterState {
 public:
   explicit FilterState(const RationalFilter<T, Order> &filter)
       : b_(), a_(), state_(), status_(filter.validate()) {
-    if (status_ != Status::SUCCESS) return;
+    if (status_ != Status::SUCCESS)
+      return;
     for (std::size_t j = 0; j <= Order; ++j) {
       b_[j] = filter.numerator[j] / filter.denominator[0];
       a_[j] = filter.denominator[j] / filter.denominator[0];
     }
-    if (!detail::all_finite(b_) || !detail::all_finite(a_)) status_ = Status::NON_FINITE;
+    if (!detail::all_finite(b_) || !detail::all_finite(a_))
+      status_ = Status::NON_FINITE;
   }
   void reset() { state_.fill(T(0)); }
   Status status() const { return status_; }
   Status step(T input, T &output) {
-    if (status_ != Status::SUCCESS) return status_;
-    if (!detail::finite(input)) return Status::NON_FINITE;
+    if (status_ != Status::SUCCESS)
+      return status_;
+    if (!detail::finite(input))
+      return Status::NON_FINITE;
     const T value = b_[0] * input + state_[0];
-    if (!detail::finite(value)) return Status::NON_FINITE;
+    if (!detail::finite(value))
+      return Status::NON_FINITE;
     // Commit a complete state only after every component is finite.
     std::array<T, Order + 1> next = {};
     for (std::size_t j = 0; j < Order; ++j) {
       next[j] = state_[j + 1] + b_[j + 1] * input - a_[j + 1] * value;
-      if (!detail::finite(next[j])) return Status::NON_FINITE;
+      if (!detail::finite(next[j]))
+        return Status::NON_FINITE;
     }
     state_ = next;
     output = value;
     return Status::SUCCESS;
   }
+
 private:
   std::array<T, Order + 1> b_, a_, state_;
   Status status_;
@@ -121,17 +136,24 @@ struct LinearControllerBasis {
   typedef std::array<T, Order + 1> Coefficients;
   std::array<Coefficients, P> numerators;
   Coefficients denominator;
-  LinearControllerBasis() : numerators(), denominator() { denominator[0] = T(1); }
-  LinearControllerBasis(const std::array<Coefficients, P> &b, const Coefficients &a)
+  LinearControllerBasis() : numerators(), denominator() {
+    denominator[0] = T(1);
+  }
+  LinearControllerBasis(const std::array<Coefficients, P> &b,
+                        const Coefficients &a)
       : numerators(b), denominator(a) {}
   Status validate() const {
-    if (!detail::all_finite(denominator)) return Status::NON_FINITE;
-    if (denominator[0] == T(0)) return Status::INVALID_ARGUMENT;
+    if (!detail::all_finite(denominator))
+      return Status::NON_FINITE;
+    if (denominator[0] == T(0))
+      return Status::INVALID_ARGUMENT;
     for (std::size_t j = 0; j < P; ++j)
-      if (!detail::all_finite(numerators[j])) return Status::NON_FINITE;
+      if (!detail::all_finite(numerators[j]))
+        return Status::NON_FINITE;
     return Status::SUCCESS;
   }
-  RationalFilter<T, Order> controller(const std::array<T, P> &parameters) const {
+  RationalFilter<T, Order>
+  controller(const std::array<T, P> &parameters) const {
     Coefficients b = {};
     for (std::size_t p = 0; p < P; ++p)
       for (std::size_t j = 0; j <= Order; ++j)
