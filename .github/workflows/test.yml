@@ -2,7 +2,9 @@ name: Data-driven control
 
 on:
   push:
-    branches: [main, develop, feature/create_data_driven]
+    branches: 
+    - develop
+
   pull_request:
   workflow_dispatch:
 
