@@ -194,39 +194,50 @@ Pythonバージョンのマトリクスと `actions/setup-python` は使用し�
 SILはJSONによるプロセス間通信を使うため、参照先のSILで使われるpybind11は不要です。
 DependabotはActions、サブモジュール、Python依存を更新対象にします。
 
-実際の [初回Actions実行](https://github.com/Modeling-Coding-Automation-Project/python_adaptive_control_to_cpp/actions/runs/42366044828)
-は、非公開の `MCAP_python_adaptive_control` を既定の `GITHUB_TOKEN` で
-取得できず、checkoutで停止しました。リモートCIの成功とは報告していません。
-確認時点で本体のActionsシークレットは未登録でした。
+他のMCAPリポジトリと同じ標準の `actions/checkout` を使用します。
+独自の `MCAP_SUBMODULE_TOKEN` 入力とシークレット必須チェックを削除しました。
+Actionsが本体の取得に自動で使う `GITHUB_TOKEN` 以外に、トークンの登録は不要です。
 
-このエラーはPythonのバージョンが原因ではありません。
-既定の `GITHUB_TOKEN` は本体リポジトリ向けの権限で、別の非公開リポジトリを
-取得する権限を持ちません（[checkoutの公式説明](https://github.com/actions/checkout#checkout-multiple-repos-private)）。
-`Run SIL test` と `Run samples` の実行には、以下の設定が必要です。
+この構成では、サブモジュールを公開リポジトリとして取得できる必要があります。
+調査時、`MCAP_python_control`、`python_control_to_cpp`、`MCAP_python_optimization`
+などは公開されていましたが、`MCAP_python_adaptive_control` だけは
+匿名アクセスが404、既存ローカル認証では取得可能でした。
+URLの誤記ではなく、公開状態の違いが最初のcheckout失敗の原因です。
 
-1. GitHubのユーザー設定から **Developer settings → Personal access tokens → Fine-grained tokens**
-   を開き、本体と再帰サブモジュール群のリポジトリ内容を読み取れるトークンを作成します。
-   Resource ownerを対象組織にし、少なくとも本体と
-   `MCAP_python_adaptive_control` を含む必要な非公開リポジトリを選び、
-   Repository permissionsの **Contents: Read-only** を付けます。
-   対象リポジトリを選べる権限、および組織で必要な承認・SSO認可も必要です。
-2. GitHubの本体リポジトリで **Settings → Secrets and variables → Actions → New repository secret** を開き、
-   名前を `MCAP_SUBMODULE_TOKEN` として登録します。値はソースコードやチャットへ記載しません。
-3. Pythonリポジトリの独立CIにも、非公開依存の取得が必要なら同名のシークレットを登録します。
-4. Actionsの **Run SIL test** と **Run samples** を対象ブランチで手動実行するか、失敗ジョブを再実行します。
-
-SIL・サンプルのワークフローは開始時にシークレットの有無を確認し、未設定なら
-登録手順を示して停止します。別の非公開リポジトリを読めない `github.token` への
-フォールバックは行いません。設定済みでも取得に失敗する場合は、トークンの期限、
-対象リポジトリ、Contents権限、組織の承認を確認してください。
-別リポジトリからのfork PRやDependabotの実行には通常のActionsシークレットが
-渡らないため、その場合もPython検証には追加の運用設定が必要です。
+2026-11-07にユーザーが `MCAP_python_adaptive_control` をPublicへ変更し、
+認証情報を使用しない `git ls-remote` で取得可能になったことを確認しました。
+さらに、Gitのシステム・ユーザー認証設定を無効にした新規クローンで、
+再帰サブモジュール82件を固定リビジョンどおりに取得できました。
+**Run SIL test** と **Run samples** は、シークレットの登録なしで再実行できます。
+依存の取得やPython検証をスキップして成功扱いにする処理は追加していません。
 
 `Run test VS` は、本体を通常の `GITHUB_TOKEN` で取得した後、
 C++に必要な公開サブモジュール6件だけを非再帰で取得します。
-このジョブは `MCAP_SUBMODULE_TOKEN` やPython参照ライブラリを必要としません。
-Python検証をスキップして成功扱いにする変更は行っていません。
-既存のローカルGit認証情報をシークレットへ転載する操作は行っていません。
+このジョブはPython参照ライブラリを必要としません。
+
+### PID反復解テストの収束条件
+
+`optimized PID FRIT gains` の失敗は、floatの演算結果が変わる構成で再現しました。
+PANOCの終了許容値は射影した更新幅のノルムに対する値であり、PIDゲインの
+誤差を直接保証しません。従来のこのテストでは終了許容値 `1e-4` が粗く、
+ゲインの合格範囲に達する前に正常終了する場合がありました。
+
+テスト内のfloat用終了許容値を `1e-6` へ変更し、係数の合格範囲は
+floatで `0.04`、doubleで `0.001` のまま維持しました。加えて、厳密解でゼロになる
+目的関数がfloatでは `1e-7`、doubleでは `1e-12` 以下であることも確認します。
+失敗時には型・実係数・期待値・状態・目的関数値・反復数を出力します。
+ライブラリ本体の既定許容値 `2e-5` と実装、依存ライブラリは変更していません。
+
+GCC 15でFMAを有効にすると、修正前のfloat FRITは `Ki=2.233591` となって
+期待値 `2` との差が合格範囲を超えました。修正後は `Ki=2.000167` です。
+GCC 13.4／14.3／15.2の通常の `-O2` と `-O2 -mfma` の計6構成で全単体テストが
+成功しました。旧終了許容値へ戻した一時的な負例は失敗し、診断出力も確認しています。
+特定のGCCバージョンや、GitHubランナーがFMAを使用したことを断定するものではありません。
+
+匿名で取得した新規クローンに今回の修正を反映し、3ワークフローのビルド・実行コマンドも
+ローカルで検証しました。単体テスト、サニタイザCTest 3件、SIL 3ケース、Python 34テスト、
+両サンプルの描画・コード生成・C++実行、コード生成統合テストがすべて成功しています。
+修正のコミット・push、およびGitHub上での再実行は行っていません。
 
 ## 適用条件と残る制約
 

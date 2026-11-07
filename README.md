@@ -62,8 +62,4 @@ Pythonサンプルは通常実行で `SimulationPlotterDash` のグラフをHTML
 反復ソルバーの既定許容値は `2e-5` です。これは射影残差の許容値であり、
 推定係数そのものの絶対誤差とは異なります。
 
-非公開サブモジュールをGitHub Actionsから取得するには、各依存リポジトリの
-読み取り権限を持つ `MCAP_SUBMODULE_TOKEN` シークレットを設定してください。
-設定手順は [検証レポートのCI設定](document/implementation_report.md#github-actionsの設定) に記載しています。
-
 [実装・検証レポート](document/implementation_report.md) / [MIT License](LICENSE.txt)

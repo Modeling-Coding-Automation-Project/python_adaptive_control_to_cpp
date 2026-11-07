@@ -17,15 +17,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check private submodule access token
-      env:
-        MCAP_SUBMODULE_TOKEN: ${{ secrets.MCAP_SUBMODULE_TOKEN }}
-      run: 'test -n "$MCAP_SUBMODULE_TOKEN" || { echo "::error::Set the Actions secret MCAP_SUBMODULE_TOKEN with Contents read access to MCAP_python_adaptive_control and its dependencies. See document/implementation_report.md."; exit 1; }'
     - name: Checkout code
       uses: actions/checkout@v7
       with:
         submodules: recursive
-        token: ${{ secrets.MCAP_SUBMODULE_TOKEN }}
         persist-credentials: false
     - name: Install dependencies
       run: 'sudo apt update
