@@ -488,3 +488,7 @@ $RECYCLE.BIN/
 # Local reference book: never distribute or commit.
 /データ駆動制御入門.pdf
 
+# Local build and generated simulation artifacts.
+/build*/
+/sample/results/
+
