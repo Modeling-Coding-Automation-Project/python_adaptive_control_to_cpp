@@ -1,0 +1,65 @@
+name: Run test VS
+
+on:
+  push:
+    branches:
+    - develop
+    - feature/*
+
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test_vs:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        submodules: false
+        persist-credentials: false
+    - name: Checkout C++ dependencies
+      run: 'git submodule update --init --depth 1 -- external_libraries/base_utility_cpp
+        external_libraries/python_math_to_cpp external_libraries/python_numpy_to_cpp
+        external_libraries/python_control_to_cpp external_libraries/python_optimization_to_cpp
+        test_vs/MCAP_tester
+
+        '
+    - name: Install dependencies
+      run: 'sudo apt update
+
+        sudo apt install -y g++
+
+        sudo apt install -y cmake
+
+        '
+    - name: Build and Run C++ application
+      run: 'g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./data_driven
+        -I ./external_libraries/python_optimization_to_cpp/optimization_utility
+        -I ./external_libraries/python_optimization_to_cpp/python_optimization
+        -I ./external_libraries/python_control_to_cpp/python_control
+        -I ./external_libraries/python_numpy_to_cpp/python_numpy
+        -I ./external_libraries/python_numpy_to_cpp/base_matrix
+        -I ./external_libraries/python_math_to_cpp/base_math
+        -I ./external_libraries/python_math_to_cpp/python_math
+        -I ./external_libraries/base_utility_cpp/base_utility
+        -I ./test_vs/MCAP_tester/include -o ./test_vs/app ./test_vs/test_data_driven.cpp
+
+        ./test_vs/app
+
+        '
+    - name: Build and Run sanitizer tests
+      run: 'cmake -S . -B build-sanitize -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=g++
+        -DADAPTIVE_CONTROL_SANITIZERS=ON
+
+        cmake --build build-sanitize --parallel 2
+
+        ctest --test-dir build-sanitize --output-on-failure
+
+        '
+    - name: Verify local reference is not tracked
+      run: 'test -z "$(git ls-files "*.pdf")"'

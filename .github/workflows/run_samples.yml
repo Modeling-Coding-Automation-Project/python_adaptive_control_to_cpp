@@ -1,0 +1,85 @@
+name: Run samples
+
+on:
+  push:
+    branches:
+    - develop
+    - feature/*
+
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run_samples:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check private submodule access token
+      env:
+        MCAP_SUBMODULE_TOKEN: ${{ secrets.MCAP_SUBMODULE_TOKEN }}
+      run: 'test -n "$MCAP_SUBMODULE_TOKEN" || { echo "::error::Set the Actions secret MCAP_SUBMODULE_TOKEN with Contents read access to MCAP_python_adaptive_control and its dependencies. See document/implementation_report.md."; exit 1; }'
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        submodules: recursive
+        token: ${{ secrets.MCAP_SUBMODULE_TOKEN }}
+        persist-credentials: false
+    - name: Install dependencies
+      run: 'sudo apt update
+
+        sudo apt install -y build-essential
+
+        sudo apt install -y cmake
+
+        sudo apt install -y python3
+
+        sudo apt install -y python3-venv
+
+        '
+    - name: Set up Python environment
+      run: 'python3 -m venv /opt/venv_py_MCAP
+
+        /opt/venv_py_MCAP/bin/pip install --upgrade pip
+
+        /opt/venv_py_MCAP/bin/pip install --upgrade setuptools
+
+        /opt/venv_py_MCAP/bin/pip install -r requirements.txt
+
+        '
+    - name: Run samples
+      env:
+        CI: 'true'
+      run: 'cmp ./sample/vrft_demo.py ./external_libraries/MCAP_python_adaptive_control/sample/data_driven/vrft_demo.py
+
+        cmp ./sample/frit_demo.py ./external_libraries/MCAP_python_adaptive_control/sample/data_driven/frit_demo.py
+
+        /opt/venv_py_MCAP/bin/python3 ./sample/vrft_demo.py
+
+        g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./data_driven
+        -I ./external_libraries/python_optimization_to_cpp/optimization_utility
+        -I ./external_libraries/python_optimization_to_cpp/python_optimization -I
+        ./external_libraries/python_control_to_cpp/python_control -I ./external_libraries/python_numpy_to_cpp/python_numpy
+        -I ./external_libraries/python_numpy_to_cpp/base_matrix -I ./external_libraries/python_math_to_cpp/base_math
+        -I ./external_libraries/python_math_to_cpp/python_math -I ./external_libraries/base_utility_cpp/base_utility
+        -o ./sample/app ./sample/vrft_demo.cpp
+
+        ./sample/app
+
+        /opt/venv_py_MCAP/bin/python3 ./sample/frit_demo.py
+
+        g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./data_driven
+        -I ./external_libraries/python_optimization_to_cpp/optimization_utility
+        -I ./external_libraries/python_optimization_to_cpp/python_optimization -I
+        ./external_libraries/python_control_to_cpp/python_control -I ./external_libraries/python_numpy_to_cpp/python_numpy
+        -I ./external_libraries/python_numpy_to_cpp/base_matrix -I ./external_libraries/python_math_to_cpp/base_math
+        -I ./external_libraries/python_math_to_cpp/python_math -I ./external_libraries/base_utility_cpp/base_utility
+        -o ./sample/app ./sample/frit_demo.cpp
+
+        ./sample/app
+
+        '
+    - name: Test code generation
+      run: '/opt/venv_py_MCAP/bin/python3 ./test_sil/test_codegen.py'

@@ -178,8 +178,20 @@ VRFTが8回、FRITが11回でした。FRIT反復版の係数は約 `[1.200094,2.
 ## GitHub Actionsの設定
 
 ワークフローは指定ブランチのpush、Pull Request、手動実行に対応しています。
-本体はPython 3.10 / 3.12のテストとサニタイザ、Pythonリポジトリ側は
-3.10 / 3.12 / 3.14のテストを定義しています。
+`python_mpc_to_cpp` と同じ構成・記述方法に合わせ、統合していた `test.yml` を
+次のファイルに分割しました。ステップ名、aptによる依存導入、複数行の `run`、
+GCCの直接実行、`/opt/venv_py_MCAP` の明示的な利用を参照先に揃えています。
+
+| ファイル | 検証内容 |
+| --- | --- |
+| `.github/workflows/run_test_vs.yml` | `test_vs/test_data_driven.cpp` をGCC C++11でビルド・実行。ASan/UBSanによるCTestも実行 |
+| `.github/workflows/run_SIL_test.yml` | `test_sil/data_driven_sil.cpp` をビルドし、Python／C++一致性を検証。Python参照実装の単体テストも実行 |
+| `.github/workflows/run_samples.yml` | VRFT／FRITサンプル、Pythonサンプルの同一性、生成C++のビルド・実行、コード生成統合テスト |
+
+本体はUbuntuランナーに用意された `python3` から仮想環境を作ってテストし、
+Pythonバージョンのマトリクスと `actions/setup-python` は使用しません。
+システムのPython環境へ直接pipでインストールせず、同じバージョンの仮想環境を使用します。
+SILはJSONによるプロセス間通信を使うため、参照先のSILで使われるpybind11は不要です。
 DependabotはActions、サブモジュール、Python依存を更新対象にします。
 
 実際の [初回Actions実行](https://github.com/Modeling-Coding-Automation-Project/python_adaptive_control_to_cpp/actions/runs/42366044828)
@@ -187,17 +199,33 @@ DependabotはActions、サブモジュール、Python依存を更新対象にし
 取得できず、checkoutで停止しました。リモートCIの成功とは報告していません。
 確認時点で本体のActionsシークレットは未登録でした。
 
-実行には以下の設定が必要です。
+このエラーはPythonのバージョンが原因ではありません。
+既定の `GITHUB_TOKEN` は本体リポジトリ向けの権限で、別の非公開リポジトリを
+取得する権限を持ちません（[checkoutの公式説明](https://github.com/actions/checkout#checkout-multiple-repos-private)）。
+`Run SIL test` と `Run samples` の実行には、以下の設定が必要です。
 
-1. 本体と再帰サブモジュール群のリポジトリ内容を読み取れるトークンを用意します。
-   Fine-grained PATなら対象リポジトリの `Contents: Read-only` を付けます。
+1. GitHubのユーザー設定から **Developer settings → Personal access tokens → Fine-grained tokens**
+   を開き、本体と再帰サブモジュール群のリポジトリ内容を読み取れるトークンを作成します。
+   Resource ownerを対象組織にし、少なくとも本体と
+   `MCAP_python_adaptive_control` を含む必要な非公開リポジトリを選び、
+   Repository permissionsの **Contents: Read-only** を付けます。
+   対象リポジトリを選べる権限、および組織で必要な承認・SSO認可も必要です。
 2. GitHubの本体リポジトリで **Settings → Secrets and variables → Actions → New repository secret** を開き、
    名前を `MCAP_SUBMODULE_TOKEN` として登録します。値はソースコードやチャットへ記載しません。
 3. Pythonリポジトリの独立CIにも、非公開依存の取得が必要なら同名のシークレットを登録します。
-4. Actionsの **Data-driven control** を対象ブランチで手動実行するか、失敗ジョブを再実行します。
+4. Actionsの **Run SIL test** と **Run samples** を対象ブランチで手動実行するか、失敗ジョブを再実行します。
 
-ワークフローは `secrets.MCAP_SUBMODULE_TOKEN` を優先し、未設定時は
-`github.token` を使います。組織が承認やSSOを要求する場合は、その条件も満たす必要があります。
+SIL・サンプルのワークフローは開始時にシークレットの有無を確認し、未設定なら
+登録手順を示して停止します。別の非公開リポジトリを読めない `github.token` への
+フォールバックは行いません。設定済みでも取得に失敗する場合は、トークンの期限、
+対象リポジトリ、Contents権限、組織の承認を確認してください。
+別リポジトリからのfork PRやDependabotの実行には通常のActionsシークレットが
+渡らないため、その場合もPython検証には追加の運用設定が必要です。
+
+`Run test VS` は、本体を通常の `GITHUB_TOKEN` で取得した後、
+C++に必要な公開サブモジュール6件だけを非再帰で取得します。
+このジョブは `MCAP_SUBMODULE_TOKEN` やPython参照ライブラリを必要としません。
+Python検証をスキップして成功扱いにする変更は行っていません。
 既存のローカルGit認証情報をシークレットへ転載する操作は行っていません。
 
 ## 適用条件と残る制約
