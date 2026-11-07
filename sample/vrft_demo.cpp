@@ -21,10 +21,13 @@ int main() {
       basis.controller(iterative.parameters), model);
 
   // Deploy an offline-tuned controller without rerunning the tuning algorithm.
-  const double deployed_error = DataDrivenSample::step_mse(
-      vrft_demo::make_optimized_controller(), model);
-  std::cout << "Python-generated controller step MSE: " << deployed_error << '\n';
+  const double deployed_error =
+      DataDrivenSample::step_mse(vrft_demo::make_optimized_controller(), model);
+  std::cout << "Python-generated controller step MSE: " << deployed_error
+            << '\n';
   return direct_ok && iterative_ok &&
-                 PythonAdaptiveControl::detail::finite(deployed_error) && deployed_error < 1e-7
-             ? 0 : 1;
+                 PythonAdaptiveControl::detail::finite(deployed_error) &&
+                 deployed_error < 1e-7
+             ? 0
+             : 1;
 }

@@ -200,8 +200,8 @@ FitResult<T, P> optimize_parameters(const Objective &objective,
   if (!finite(gamma) || !finite(residual_squared))
     result.status = Status::NON_FINITE;
   else if (result.status == Status::SUCCESS &&
-           residual_squared > (T(10) * options.tolerance) *
-                                  (T(10) * options.tolerance))
+           residual_squared >
+               (T(10) * options.tolerance) * (T(10) * options.tolerance))
     result.status = Status::ITERATION_LIMIT;
   return result;
 }

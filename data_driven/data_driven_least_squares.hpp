@@ -90,7 +90,8 @@ solve_least_squares(const Regression<T, P, N> &regression,
     for (std::size_t j = 0; j < P; ++j)
       row[j] = regression.columns[j][k] * scale;
     if (!detail::all_finite(row) || !detail::finite(regression.target[k]) ||
-        !detail::append_qr_row<T, P>(augmented, row, regression.target[k] * scale)) {
+        !detail::append_qr_row<T, P>(augmented, row,
+                                     regression.target[k] * scale)) {
       result.status = Status::NON_FINITE;
       return result;
     }
@@ -133,7 +134,8 @@ solve_least_squares(const Regression<T, P, N> &regression,
   // The pinned backend branches on the RHS column count when processing an
   // off-diagonal row. A P-column RHS selects the complete substitution path;
   // only column zero is populated and returned. This also handles P=1.
-  const auto solution = triangular_solver.backward_substitution(right_hand_sides);
+  const auto solution =
+      triangular_solver.backward_substitution(right_hand_sides);
   for (std::size_t j = 0; j < P; ++j)
     result.parameters[j] = solution(j, 0);
   const CostGradient<T, P> objective =

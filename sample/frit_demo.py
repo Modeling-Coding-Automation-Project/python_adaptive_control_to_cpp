@@ -69,7 +69,8 @@ def run_demo():
 
     reference = np.ones(100)
     desired = model.filter(reference)
-    trajectories = {"initial PI": closed_loop(basis.controller(initial), reference)}
+    trajectories = {"initial PI": closed_loop(
+        basis.controller(initial), reference)}
     for name, fit in fits.items():
         controller = (inverse_basis.controller(fit.parameters).inverse()
                       if name == "FRIT inverse least squares" else basis.controller(fit.parameters))
@@ -87,13 +88,15 @@ def generate_cpp(result, output_dir=None, check=False):
     deploy_module = REPOSITORY / "data_driven" / "data_driven_deploy.py"
     if not deploy_module.is_file():
         if output_dir is not None or check:
-            raise RuntimeError("C++ generation is available in python_adaptive_control_to_cpp")
+            raise RuntimeError(
+                "C++ generation is available in python_adaptive_control_to_cpp")
         return None
     sys.path.insert(0, str(deploy_module.parent))
     from data_driven_deploy import DataDrivenDeploy
     destination = (REPOSITORY / "sample" / "generated" if output_dir is None
                    else Path(output_dir))
-    path = DataDrivenDeploy.generate_frit_cpp_code(result, destination, check=check)
+    path = DataDrivenDeploy.generate_frit_cpp_code(
+        result, destination, check=check)
     print(f"C++ header {'verified' if check else 'generated'}: {path}")
     return path
 
@@ -117,13 +120,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-plot", action="store_true",
                         help="skip interactive HTML plotting for automated runs")
-    parser.add_argument("--output-dir", type=Path, help="C++ generated-header destination")
+    parser.add_argument("--output-dir", type=Path,
+                        help="C++ generated-header destination")
     parser.add_argument("--check-generated", action="store_true",
                         help="verify the generated header without changing it")
     args = parser.parse_args()
     result = run_demo()
     for name, fit in result["fits"].items():
-        rmse = np.sqrt(np.mean((result["trajectories"][name] - result["desired"])**2))
+        rmse = np.sqrt(
+            np.mean((result["trajectories"][name] - result["desired"])**2))
         print(f"{name}: rho={fit.parameters}, status={fit.status.value}, "
               f"cost={fit.cost:.3e}, iterations={fit.iterations}, step RMSE={rmse:.3e}")
     generate_cpp(result, args.output_dir, args.check_generated)

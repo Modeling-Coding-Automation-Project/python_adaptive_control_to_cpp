@@ -13,7 +13,8 @@ import numpy as np
 def _array(value, name, ndim):
     out = np.asarray(value, dtype=float)
     if out.ndim != ndim or not out.size or not np.all(np.isfinite(out)):
-        raise ValueError(f"{name} must be a nonempty finite {ndim}-dimensional array")
+        raise ValueError(
+            f"{name} must be a nonempty finite {ndim}-dimensional array")
     return out
 
 
@@ -55,10 +56,13 @@ class DataDrivenDeploy:
         model = result["model"]
         parameter_count = basis.parameter_count
         if inverse_basis is not None and inverse_basis.parameter_count != parameter_count:
-            raise ValueError("This paired example expects equal forward/inverse parameter counts")
-        objects = (model, basis) + (() if inverse_basis is None else (inverse_basis,))
+            raise ValueError(
+                "This paired example expects equal forward/inverse parameter counts")
+        objects = (model, basis) + \
+            (() if inverse_basis is None else (inverse_basis,))
         order = max(len(value.denominator) - 1 for value in objects)
-        order = max(order, len(model.numerator) - 1, basis.numerators.shape[1] - 1)
+        order = max(order, len(model.numerator) - 1,
+                    basis.numerators.shape[1] - 1)
         if inverse_basis is not None:
             order = max(order, inverse_basis.numerators.shape[1] - 1)
         options = result["options"]
@@ -67,21 +71,27 @@ class DataDrivenDeploy:
         lower = _array(result["lower"], "lower", 1)
         upper = _array(result["upper"], "upper", 1)
         if any(value.size != parameter_count for value in (initial, lower, upper)):
-            raise ValueError("Initial parameters and bounds must match the controller basis")
+            raise ValueError(
+                "Initial parameters and bounds must match the controller basis")
         if np.any(lower > upper) or np.any(initial < lower) or np.any(initial > upper):
-            raise ValueError("Initial parameters and bounds must define a feasible starting point")
-        direct_name = ("VRFT least squares" if method == "vrft" else "FRIT inverse least squares")
+            raise ValueError(
+                "Initial parameters and bounds must define a feasible starting point")
+        direct_name = ("VRFT least squares" if method ==
+                       "vrft" else "FRIT inverse least squares")
         iterative_name = method.upper() + " PANOC"
         direct = result["fits"][direct_name]
         iterative = result["fits"][iterative_name]
         if not direct.success or not iterative.success:
-            raise ValueError("Only successful fitted controllers can be deployed")
+            raise ValueError(
+                "Only successful fitted controllers can be deployed")
         for fit in (direct, iterative):
             parameters = _array(fit.parameters, "fitted parameters", 1)
             if parameters.size != parameter_count or not np.isfinite(fit.cost):
-                raise ValueError("Fitted parameters and cost must be finite and dimensionally consistent")
+                raise ValueError(
+                    "Fitted parameters and cost must be finite and dimensionally consistent")
         if np.any(iterative.parameters < lower) or np.any(iterative.parameters > upper):
-            raise ValueError("Optimized parameters must satisfy their generated bounds")
+            raise ValueError(
+                "Optimized parameters must satisfy their generated bounds")
         direct_controller = ((inverse_basis.controller(direct.parameters).inverse())
                              if inverse_basis is not None else basis.controller(direct.parameters))
         iterative_controller = basis.controller(iterative.parameters)
@@ -101,25 +111,31 @@ class DataDrivenDeploy:
         def filter_factory(factory, value):
             b = _initializer(_padded(value.numerator, order + 1))
             a = _initializer(_padded(value.denominator, order + 1))
-            lines.extend([f"inline Filter {factory}() {{", f"  return Filter({b}, {a});", "}", ""])
+            lines.extend(
+                [f"inline Filter {factory}() {{", f"  return Filter({b}, {a});", "}", ""])
 
         def basis_factory(factory, value):
-            rows = ", ".join(_initializer(_padded(row, order + 1)) for row in value.numerators)
+            rows = ", ".join(_initializer(_padded(row, order + 1))
+                             for row in value.numerators)
             a = _initializer(_padded(value.denominator, order + 1))
-            lines.extend([f"inline Basis {factory}() {{", f"  return Basis({{{{{rows}}}}}, {a});", "}", ""])
+            lines.extend(
+                [f"inline Basis {factory}() {{", f"  return Basis({{{{{rows}}}}}, {a});", "}", ""])
 
         def parameters_factory(factory, value):
             values = _array(value, factory, 1)
             if values.size != parameter_count:
-                raise ValueError(f"{factory} has an inconsistent parameter count")
-            lines.extend([f"inline Parameters {factory}() {{", f"  return {_initializer(values)};", "}", ""])
+                raise ValueError(
+                    f"{factory} has an inconsistent parameter count")
+            lines.extend(
+                [f"inline Parameters {factory}() {{", f"  return {_initializer(values)};", "}", ""])
 
         filter_factory("make_model", model)
         basis_factory("make_forward_basis", basis)
         if inverse_basis is not None:
             basis_factory("make_inverse_basis", inverse_basis)
         for factory, values in (("initial_parameters", result["initial"]),
-                                ("lower_bounds", result["lower"]), ("upper_bounds", result["upper"]),
+                                ("lower_bounds",
+                                 result["lower"]), ("upper_bounds", result["upper"]),
                                 ("least_squares_parameters", direct.parameters),
                                 ("optimized_parameters", iterative.parameters)):
             parameters_factory(factory, values)
@@ -128,8 +144,10 @@ class DataDrivenDeploy:
         lines.extend(["inline PythonAdaptiveControl::SolverOptions<Scalar> make_options() {",
                       "  PythonAdaptiveControl::SolverOptions<Scalar> options;",
                       "  options.ridge = " + _scalar(options.ridge) + ";",
-                      "  options.tolerance = " + _scalar(options.tolerance) + ";",
-                      "  options.rank_tolerance = " + _scalar(options.rank_tolerance) + ";",
+                      "  options.tolerance = " +
+                      _scalar(options.tolerance) + ";",
+                      "  options.rank_tolerance = " +
+                      _scalar(options.rank_tolerance) + ";",
                       f"  options.max_iterations = {int(options.max_iterations)};",
                       f"  options.discard_samples = {int(options.discard_samples)};",
                       "  return options;", "}", ""])
@@ -148,7 +166,8 @@ class DataDrivenDeploy:
         for factory, values in (("recorded_input", u), ("recorded_output", y)):
             lines.extend([f"inline Record {factory}() {{", "  return {{"])
             for offset in range(0, len(values), 4):
-                lines.append("    " + ", ".join(_scalar(v) for v in values[offset:offset + 4]) + ",")
+                lines.append("    " + ", ".join(_scalar(v)
+                             for v in values[offset:offset + 4]) + ",")
             lines.extend(["  }};", "}", ""])
         lines.extend(["} // namespace " + name, "#endif", ""])
         return "\n".join(lines)
@@ -159,7 +178,8 @@ class DataDrivenDeploy:
         text = DataDrivenDeploy.render_cpp_code(method, result)
         if check:
             if not path.is_file() or path.read_text() != text:
-                raise ValueError(f"Generated header differs: {path}; rerun the Python demo")
+                raise ValueError(
+                    f"Generated header differs: {path}; rerun the Python demo")
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text)

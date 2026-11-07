@@ -1,8 +1,8 @@
 #ifndef PYTHON_ADAPTIVE_CONTROL_COMMON_HPP_
 #define PYTHON_ADAPTIVE_CONTROL_COMMON_HPP_
 
-#include <array>
 #include "python_math.hpp"
+#include <array>
 #include <cstddef>
 #include <limits>
 #include <type_traits>

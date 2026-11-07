@@ -20,24 +20,32 @@ Regression<T, P, N> vrft_regression(
     const RationalFilter<T, Order> &prefilter = RationalFilter<T, Order>()) {
   Regression<T, P, N> result;
   result.status = basis.validate();
-  if (result.status != Status::SUCCESS) return result;
+  if (result.status != Status::SUCCESS)
+    return result;
   if (!detail::all_finite(u) || !detail::all_finite(y)) {
-    result.status = Status::NON_FINITE; return result;
+    result.status = Status::NON_FINITE;
+    return result;
   }
   std::array<T, N> error = {};
   result.status = model.apply(y, error);
-  if (result.status != Status::SUCCESS) return result;
-  for (std::size_t k = 0; k < N; ++k) error[k] = y[k] - error[k];
+  if (result.status != Status::SUCCESS)
+    return result;
+  for (std::size_t k = 0; k < N; ++k)
+    error[k] = y[k] - error[k];
   result.status = model.apply(u, result.target);
-  if (result.status != Status::SUCCESS) return result;
+  if (result.status != Status::SUCCESS)
+    return result;
   result.status = prefilter.apply(result.target, result.target);
-  if (result.status != Status::SUCCESS) return result;
+  if (result.status != Status::SUCCESS)
+    return result;
   for (std::size_t j = 0; j < P; ++j) {
     const RationalFilter<T, Order> term(basis.numerators[j], basis.denominator);
     result.status = term.apply(error, result.columns[j]);
-    if (result.status != Status::SUCCESS) return result;
+    if (result.status != Status::SUCCESS)
+      return result;
     result.status = prefilter.apply(result.columns[j], result.columns[j]);
-    if (result.status != Status::SUCCESS) return result;
+    if (result.status != Status::SUCCESS)
+      return result;
   }
   return result;
 }
@@ -49,7 +57,8 @@ FitResult<T, P> vrft_least_squares(
     const LinearControllerBasis<T, P, Order> &basis,
     const SolverOptions<T> &options = SolverOptions<T>(),
     const RationalFilter<T, Order> &prefilter = RationalFilter<T, Order>()) {
-  return solve_least_squares(vrft_regression(u, y, model, basis, prefilter), options);
+  return solve_least_squares(vrft_regression(u, y, model, basis, prefilter),
+                             options);
 }
 
 template <typename T, std::size_t P, std::size_t Order, std::size_t N>
@@ -61,8 +70,10 @@ FitResult<T, P> vrft_optimize(
     const std::array<T, P> &upper,
     const SolverOptions<T> &options = SolverOptions<T>(),
     const RationalFilter<T, Order> &prefilter = RationalFilter<T, Order>()) {
-  if (!detail::valid_options<T, N>(options)) return FitResult<T, P>();
-  const Regression<T, P, N> regression = vrft_regression(u, y, model, basis, prefilter);
+  if (!detail::valid_options<T, N>(options))
+    return FitResult<T, P>();
+  const Regression<T, P, N> regression =
+      vrft_regression(u, y, model, basis, prefilter);
   if (regression.status != Status::SUCCESS) {
     FitResult<T, P> result;
     result.status = regression.status;
@@ -80,28 +91,38 @@ FitResult<T, P> vrft_optimize(
     for (std::size_t i = 0; i < P; ++i) {
       linear[i] += regression.columns[i][k] * regression.target[k] * scale;
       for (std::size_t j = 0; j < P; ++j)
-        gram[i][j] += regression.columns[i][k] * regression.columns[j][k] * scale;
+        gram[i][j] +=
+            regression.columns[i][k] * regression.columns[j][k] * scale;
     }
   }
-  for (std::size_t j = 0; j < P; ++j) gram[j][j] += options.ridge;
-  const auto objective = [&gram, &linear, constant](const std::array<T, P> &parameters) {
+  for (std::size_t j = 0; j < P; ++j)
+    gram[j][j] += options.ridge;
+  const auto objective = [&gram, &linear,
+                          constant](const std::array<T, P> &parameters) {
     CostGradient<T, P> value;
     value.cost = constant;
     for (std::size_t i = 0; i < P; ++i) {
       T product = T(0);
-      for (std::size_t j = 0; j < P; ++j) product += gram[i][j] * parameters[j];
+      for (std::size_t j = 0; j < P; ++j)
+        product += gram[i][j] * parameters[j];
       value.gradient[i] = T(2) * (product - linear[i]);
       value.cost += parameters[i] * product - T(2) * linear[i] * parameters[i];
     }
-    value.status = detail::finite(value.cost) && detail::all_finite(value.gradient)
-        ? Status::SUCCESS : Status::NON_FINITE;
+    value.status =
+        detail::finite(value.cost) && detail::all_finite(value.gradient)
+            ? Status::SUCCESS
+            : Status::NON_FINITE;
     return value;
   };
-  FitResult<T, P> result = detail::optimize_parameters<T, P>(objective, initial, lower, upper, options);
-  if (result.status == Status::SUCCESS || result.status == Status::ITERATION_LIMIT) {
-    const CostGradient<T, P> final = regression_cost_gradient(regression, result.parameters, options);
+  FitResult<T, P> result = detail::optimize_parameters<T, P>(
+      objective, initial, lower, upper, options);
+  if (result.status == Status::SUCCESS ||
+      result.status == Status::ITERATION_LIMIT) {
+    const CostGradient<T, P> final =
+        regression_cost_gradient(regression, result.parameters, options);
     result.cost = final.cost;
-    if (final.status != Status::SUCCESS) result.status = final.status;
+    if (final.status != Status::SUCCESS)
+      result.status = final.status;
   }
   return result;
 }
@@ -116,19 +137,24 @@ public:
        const RationalFilter<T, Order> &weight = RationalFilter<T, Order>())
       : reference_model(model), basis(controller_basis), prefilter(weight) {}
   template <std::size_t N>
-  Regression<T, P, N> regression(const std::array<T, N> &u, const std::array<T, N> &y) const {
+  Regression<T, P, N> regression(const std::array<T, N> &u,
+                                 const std::array<T, N> &y) const {
     return vrft_regression(u, y, reference_model, basis, prefilter);
   }
   template <std::size_t N>
-  FitResult<T, P> fit_least_squares(const std::array<T, N> &u, const std::array<T, N> &y,
+  FitResult<T, P> fit_least_squares(
+      const std::array<T, N> &u, const std::array<T, N> &y,
       const SolverOptions<T> &options = SolverOptions<T>()) const {
     return vrft_least_squares(u, y, reference_model, basis, options, prefilter);
   }
   template <std::size_t N>
-  FitResult<T, P> fit_iterative(const std::array<T, N> &u, const std::array<T, N> &y,
-      const std::array<T, P> &initial, const std::array<T, P> &lower,
-      const std::array<T, P> &upper, const SolverOptions<T> &options = SolverOptions<T>()) const {
-    return vrft_optimize(u, y, reference_model, basis, initial, lower, upper, options, prefilter);
+  FitResult<T, P>
+  fit_iterative(const std::array<T, N> &u, const std::array<T, N> &y,
+                const std::array<T, P> &initial, const std::array<T, P> &lower,
+                const std::array<T, P> &upper,
+                const SolverOptions<T> &options = SolverOptions<T>()) const {
+    return vrft_optimize(u, y, reference_model, basis, initial, lower, upper,
+                         options, prefilter);
   }
 };
 } // namespace PythonAdaptiveControl
