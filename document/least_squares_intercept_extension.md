@@ -7,7 +7,7 @@
 VRFT／FRITでは `false` を指定して、渡された回帰行列をそのまま解きます。
 
 ```cpp
-// 追加後の使用例。現時点では未実装のAPIです。
+// バッチLSへ追加した切片選択APIの使用例。
 using X_Type = PythonNumpy::DenseMatrix_Type<double, 128, 2>;
 
 PythonControl::LeastSquares<X_Type> conventional;       // 従来どおり切片あり
@@ -17,14 +17,17 @@ controller.fit(X, target);
 auto rho = controller.get_weights(); // 2×1。余分な切片係数を含まない
 ```
 
-本書は変更の提案です。対象サブモジュールの実装変更は行っていません。
-調査対象は `python_control_to_cpp` の `b4dde5d` と
+本書は変更の設計案です。2026-11-07に、バッチLSの切片選択、Python対応、
+コード生成、サンプル、単体テスト、SILを実装しました（未コミット）。
+実装範囲と検証結果は [実装レポート](least_squares_intercept_implementation.md) を参照してください。
+QR・診断・ridge・RLSへの拡張は、引き続き後続の設計候補です。
+変更前の調査対象は `python_control_to_cpp` の `b4dde5d` と
 `python_numpy_to_cpp` の `5ef4ecc` です。
 
-## 1. 現在のコードで起きていること
+## 1. 変更前のコードで起きていたこと
 
 対象は [python_control_least_squares.hpp](../external_libraries/python_control_to_cpp/python_control/python_control_least_squares.hpp)
-です。バッチ最小二乗クラスには、切片の有無を選ぶ機能がありません。
+です。変更前のバッチ最小二乗クラスには、切片の有無を選ぶ機能がありませんでした。
 
 | 対象 | 現在の実装 |
 | --- | --- |
