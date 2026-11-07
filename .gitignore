@@ -485,3 +485,6 @@ $RECYCLE.BIN/
 
 # Windows app
 *.exe
+# Local reference book: never distribute or commit.
+/データ駆動制御入門.pdf
+
