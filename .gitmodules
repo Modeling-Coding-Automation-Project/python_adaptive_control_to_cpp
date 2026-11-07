@@ -22,3 +22,6 @@
 [submodule "sample/simulation_manager"]
 	path = sample/simulation_manager
 	url = https://github.com/Modeling-Coding-Automation-Project/simulation_manager.git
+[submodule "external_libraries/MCAP_python_control"]
+	path = external_libraries/MCAP_python_control
+	url = https://github.com/Modeling-Coding-Automation-Project/MCAP_python_control.git
