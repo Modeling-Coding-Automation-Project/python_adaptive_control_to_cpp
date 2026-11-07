@@ -9,9 +9,9 @@ SISO離散時間系を扱い、伝達関数の係数は `z^-1` の昇順です�
 
 `LinearControllerBasis` は共通分母 `A` とパラメータごとの分子 `B_i` を持ちます。
 
-\[
+$$
  C(\rho)=\frac{\sum_i\rho_i B_i}{A}=\sum_i\rho_i\beta_i.
-\]
+$$
 
 PIの後退差分積分では、サンプリング周期を `dt` として
 `B_0=[1,-1]`, `B_1=[dt,0]`, `A=[1,-1]` と置けば、
@@ -28,10 +28,10 @@ PIDも次数2の共通分母に揃えて表現できます。
 `e_v=(M^-1-I)y` です。本実装ではプレフィルタを `L=M` とし、
 逆モデルを作らずに次の回帰問題を組み立てます。
 
-\[
+$$
  d=Mu,\qquad X_i=\beta_i(I-M)y,\qquad
  J_V(\rho)=\frac{\|X\rho-d\|^2}{n}+\lambda\|\rho\|^2.
-\]
+$$
 
 これにより、遅れを含む目標モデルも因果的な順方向フィルタだけで扱えます。
 `vrft_least_squares` はQRで直接解き、`vrft_optimize` は同じ目的関数を
@@ -48,18 +48,18 @@ PANOCで最小化します。後者はパラメータの上下限を指定でき
 
 通常の制御器 `C(rho)` に対して、擬似参照信号と残差を構成します。
 
-\[
+$$
  \widetilde r=C(\rho)^{-1}u+y,\quad
  e_F=y-M\widetilde r,\quad
  J_F=\frac{e_F^Te_F}{n}+\lambda\|\rho\|^2.
-\]
+$$
 
 `frit_optimize` はこの目的関数を既存PANOCで最小化します。数値差分ではなく、
 `v=C^-1 u`、`B=sum rho_i B_i` に対して
 
-\[
+$$
  \frac{\partial e_F}{\partial\rho_i}=M\frac{B_i}{B}v
-\]
+$$
 
 をフィルタで評価し、解析勾配を与えます。
 因果的な逆を計算するため `B[0] != 0` が必要です。
@@ -71,10 +71,10 @@ PANOCで最小化します。後者はパラメータの上下限を指定でき
 
 書籍の§4.5.1に従い、**逆制御器**を線形に表現します。
 
-\[
+$$
  C(\rho)^{-1}=\sum_i\rho_i\beta_i,\quad
  d=(I-M)y,\quad X_i=M\beta_i u.
-\]
+$$
 
 `frit_least_squares` は `||X rho-d||^2/n + lambda||rho||^2` をQRで解きます。
 これは元のFRIT評価関数の正確な最小二乗化です。
