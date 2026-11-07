@@ -45,13 +45,22 @@ python test_sil/test_codegen.py
 Pythonサンプルは通常実行で `SimulationPlotterDash` のグラフをHTMLへ保存し、
 ブラウザを開きます。画面を開けない環境では表示された保存先を開いてください。
 表示不要の自動実行では `--no-plot` を指定します。
-同時にリポジトリ直下へ `vrft_demo.hpp`／`frit_demo.hpp` を生成します。
-生成先は実行時のカレントディレクトリに依存しません。
-生成済みヘッダも含めているため、C++だけのビルドにはPythonは不要です。
-C++サンプルは数値結果と検証のPASS／FAILをターミナルへ表示し、`return 0;` で終了します。
+設計した問題のサイズ・目標モデル・制御器基底などを、リポジトリ直下の
+`vrft_demo.hpp`／`frit_demo.hpp` へ生成します。生成先はカレントディレクトリに依存しません。
+生成ヘッダは追跡しないため、C++サンプルのビルド前に対応するPythonを実行してください。
+
+PythonとC++は、実験データの収集、直接法と反復法による調整、調整した制御器の構成、
+閉ループシミュレーションを同じ順序で実行します。C++も入出力データを収集して調整を行い、
+各時刻の参照値・目標応答・プラント出力・操作量をターミナルへ表示して `return 0;` で終了します。
+時系列と調整結果のPython／C++一致性は `test_sil/test_codegen.py` で検証します。
+
+Pythonを使わずにC++ライブラリと単体テストだけをビルドする場合は、
+CMakeに `-DADAPTIVE_CONTROL_BUILD_SAMPLES=OFF` を指定します。
 
 組み込み先のCMakeからは `add_subdirectory(...)` と
 `target_link_libraries(your_target PRIVATE MCAP::AdaptiveControl)` を使用できます。
+ライブラリだけを組み込む場合は、`add_subdirectory(...)` より前に
+`ADAPTIVE_CONTROL_BUILD_TESTS` と `ADAPTIVE_CONTROL_BUILD_SAMPLES` を `OFF` に設定します。
 `data_driven.hpp` をインクルードします。
 使用例は [sample/README.md](sample/README.md) を参照してください。
 

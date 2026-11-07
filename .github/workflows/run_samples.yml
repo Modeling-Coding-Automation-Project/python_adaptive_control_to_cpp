@@ -52,7 +52,7 @@ jobs:
 
         /opt/venv_py_MCAP/bin/python3 ./sample/vrft_demo.py
 
-        g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./data_driven
+        g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./ -I ./data_driven
         -I ./external_libraries/python_optimization_to_cpp/optimization_utility
         -I ./external_libraries/python_optimization_to_cpp/python_optimization -I
         ./external_libraries/python_control_to_cpp/python_control -I ./external_libraries/python_numpy_to_cpp/python_numpy
@@ -64,7 +64,7 @@ jobs:
 
         /opt/venv_py_MCAP/bin/python3 ./sample/frit_demo.py
 
-        g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./data_driven
+        g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./ -I ./data_driven
         -I ./external_libraries/python_optimization_to_cpp/optimization_utility
         -I ./external_libraries/python_optimization_to_cpp/python_optimization -I
         ./external_libraries/python_control_to_cpp/python_control -I ./external_libraries/python_numpy_to_cpp/python_numpy

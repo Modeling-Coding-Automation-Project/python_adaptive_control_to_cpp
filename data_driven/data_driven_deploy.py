@@ -1,10 +1,12 @@
-"""Deploy NumPy tuning objects as C++11 configuration/controller factories.
+"""Deploy a Python data-driven design configuration as fixed-size C++11 types.
 
 The MPC repository uses Python deploy classes to emit headers consumed by C++
 examples. This module follows that pattern for fixed-size data-driven models,
-controller bases, experiment records, tuning options, and fitted controllers.
+controller bases, experiment sizes, and tuning options. Experiment data and
+tuned controllers are computed independently by the Python and C++ examples.
 The reference Python library intentionally has no dependency on this generator.
 """
+from numbers import Integral, Real
 from pathlib import Path
 
 import numpy as np
@@ -32,28 +34,49 @@ def _padded(values, size):
     return np.pad(values, (0, size - len(values)))
 
 
+def _integer(value, name, minimum=1, maximum=None):
+    if (isinstance(value, (bool, np.bool_)) or not isinstance(value, Integral)
+            or value < minimum or (maximum is not None and value > maximum)):
+        raise ValueError(f"{name} must be an integer in the supported range")
+    return int(value)
+
+
+def _real(value, name):
+    if (isinstance(value, (bool, np.bool_)) or not isinstance(value, Real)
+            or not np.isfinite(value)):
+        raise ValueError(f"{name} must be a finite real number")
+    return float(value)
+
+
 class DataDrivenDeploy:
-    """Generate a deterministic header, or verify an already generated one."""
+    """Generate a problem configuration before collecting data or tuning."""
 
     @staticmethod
-    def generate_vrft_cpp_code(result, output_dir, check=False):
-        return DataDrivenDeploy._generate("vrft", result, output_dir, check)
+    def generate_vrft_cpp_code(design, output_dir, check=False):
+        return DataDrivenDeploy._generate("vrft", design, output_dir, check)
 
     @staticmethod
-    def generate_frit_cpp_code(result, output_dir, check=False):
-        return DataDrivenDeploy._generate("frit", result, output_dir, check)
+    def generate_frit_cpp_code(design, output_dir, check=False):
+        return DataDrivenDeploy._generate("frit", design, output_dir, check)
 
     @staticmethod
-    def render_cpp_code(method, result):
+    def render_cpp_code(method, design):
         if method not in ("vrft", "frit"):
             raise ValueError("method must be vrft or frit")
-        u = _array(result["u"], "u", 1)
-        y = _array(result["y"], "y", 1)
-        if y.shape != u.shape:
-            raise ValueError("Recorded input and output lengths must match")
-        basis = result["basis"]
-        inverse_basis = result["inverse_basis"] if method == "frit" else None
-        model = result["model"]
+        sample_count = _integer(design["sample_count"], "sample_count")
+        simulation_count = _integer(design["simulation_count"], "simulation_count")
+        excitation_seed = _integer(design["excitation_seed"], "excitation_seed",
+                                   minimum=0, maximum=0xFFFFFFFF)
+        sample_time = _real(design["sample_time"], "sample_time")
+        if sample_time <= 0:
+            raise ValueError("sample_time must be positive")
+        plant_a = _real(design["plant_a"], "plant_a")
+        plant_b = _real(design["plant_b"], "plant_b")
+        basis = design["basis"]
+        inverse_basis = design["inverse_basis"] if method == "frit" else None
+        if method == "frit" and inverse_basis is None:
+            raise ValueError("FRIT requires an inverse controller basis")
+        model = design["model"]
         parameter_count = basis.parameter_count
         if inverse_basis is not None and inverse_basis.parameter_count != parameter_count:
             raise ValueError(
@@ -65,42 +88,30 @@ class DataDrivenDeploy:
                     basis.numerators.shape[1] - 1)
         if inverse_basis is not None:
             order = max(order, inverse_basis.numerators.shape[1] - 1)
-        options = result["options"]
-        options.validate(len(u))
-        initial = _array(result["initial"], "initial", 1)
-        lower = _array(result["lower"], "lower", 1)
-        upper = _array(result["upper"], "upper", 1)
+        options = design["options"]
+        options.validate(sample_count)
+        initial = _array(design["initial"], "initial", 1)
+        lower = _array(design["lower"], "lower", 1)
+        upper = _array(design["upper"], "upper", 1)
         if any(value.size != parameter_count for value in (initial, lower, upper)):
             raise ValueError(
                 "Initial parameters and bounds must match the controller basis")
         if np.any(lower > upper) or np.any(initial < lower) or np.any(initial > upper):
             raise ValueError(
                 "Initial parameters and bounds must define a feasible starting point")
-        direct_name = ("VRFT least squares" if method ==
-                       "vrft" else "FRIT inverse least squares")
-        iterative_name = method.upper() + " PANOC"
-        direct = result["fits"][direct_name]
-        iterative = result["fits"][iterative_name]
-        if not direct.success or not iterative.success:
-            raise ValueError(
-                "Only successful fitted controllers can be deployed")
-        for fit in (direct, iterative):
-            parameters = _array(fit.parameters, "fitted parameters", 1)
-            if parameters.size != parameter_count or not np.isfinite(fit.cost):
-                raise ValueError(
-                    "Fitted parameters and cost must be finite and dimensionally consistent")
-        if np.any(iterative.parameters < lower) or np.any(iterative.parameters > upper):
-            raise ValueError(
-                "Optimized parameters must satisfy their generated bounds")
-        direct_controller = ((inverse_basis.controller(direct.parameters).inverse())
-                             if inverse_basis is not None else basis.controller(direct.parameters))
-        iterative_controller = basis.controller(iterative.parameters)
         name = method + "_demo"
         guard = "GENERATED_" + name.upper() + "_HPP_"
         lines = ["// Generated by data_driven/data_driven_deploy.py; edit the Python demo.",
+                 "// Configuration only: collect data and tune the controller at runtime.",
                  "#ifndef " + guard, "#define " + guard, "", '#include "data_driven.hpp"',
+                 '#include <cstdint>',
                  "", "namespace " + name + " {", "using Scalar = double;",
-                 f"constexpr std::size_t SAMPLE_COUNT = {u.size};",
+                 "constexpr Scalar SAMPLE_TIME = " + _scalar(sample_time) + ";",
+                 f"constexpr std::size_t SAMPLE_COUNT = {sample_count};",
+                 f"constexpr std::size_t SIMULATION_COUNT = {simulation_count};",
+                 f"constexpr std::uint32_t EXCITATION_SEED = {excitation_seed}u;",
+                 "constexpr Scalar PLANT_A = " + _scalar(plant_a) + ";",
+                 "constexpr Scalar PLANT_B = " + _scalar(plant_b) + ";",
                  f"constexpr std::size_t PARAMETER_COUNT = {parameter_count};",
                  f"constexpr std::size_t ORDER = {order};",
                  "using Record = std::array<Scalar, SAMPLE_COUNT>;",
@@ -133,14 +144,9 @@ class DataDrivenDeploy:
         basis_factory("make_forward_basis", basis)
         if inverse_basis is not None:
             basis_factory("make_inverse_basis", inverse_basis)
-        for factory, values in (("initial_parameters", result["initial"]),
-                                ("lower_bounds",
-                                 result["lower"]), ("upper_bounds", result["upper"]),
-                                ("least_squares_parameters", direct.parameters),
-                                ("optimized_parameters", iterative.parameters)):
+        for factory, values in (("initial_parameters", initial),
+                                ("lower_bounds", lower), ("upper_bounds", upper)):
             parameters_factory(factory, values)
-        filter_factory("make_least_squares_controller", direct_controller)
-        filter_factory("make_optimized_controller", iterative_controller)
         lines.extend(["inline PythonAdaptiveControl::SolverOptions<Scalar> make_options() {",
                       "  PythonAdaptiveControl::SolverOptions<Scalar> options;",
                       "  options.ridge = " + _scalar(options.ridge) + ";",
@@ -163,19 +169,13 @@ class DataDrivenDeploy:
                           "make_inverse_tuner() {",
                           "  return PythonAdaptiveControl::FRITLeastSquares<Scalar, PARAMETER_COUNT, ORDER>(",
                           "      make_model(), make_inverse_basis());", "}", ""])
-        for factory, values in (("recorded_input", u), ("recorded_output", y)):
-            lines.extend([f"inline Record {factory}() {{", "  return {{"])
-            for offset in range(0, len(values), 4):
-                lines.append("    " + ", ".join(_scalar(v)
-                             for v in values[offset:offset + 4]) + ",")
-            lines.extend(["  }};", "}", ""])
         lines.extend(["} // namespace " + name, "#endif", ""])
         return "\n".join(lines)
 
     @staticmethod
-    def _generate(method, result, output_dir, check):
+    def _generate(method, design, output_dir, check):
         path = Path(output_dir) / (method + "_demo.hpp")
-        text = DataDrivenDeploy.render_cpp_code(method, result)
+        text = DataDrivenDeploy.render_cpp_code(method, design)
         if check:
             if not path.is_file() or path.read_text() != text:
                 raise ValueError(

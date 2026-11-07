@@ -45,17 +45,26 @@ if(ADAPTIVE_CONTROL_BUILD_TESTS)
 endif()
 
 if(ADAPTIVE_CONTROL_BUILD_SAMPLES)
+    foreach(method vrft frit)
+        if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${method}_demo.hpp")
+            message(FATAL_ERROR
+                "Run Python sample/${method}_demo.py to generate ${method}_demo.hpp first, "
+                "or configure with -DADAPTIVE_CONTROL_BUILD_SAMPLES=OFF.")
+        endif()
+    endforeach()
     adaptive_control_executable(vrft_demo sample/vrft_demo.cpp)
     adaptive_control_executable(frit_demo sample/frit_demo.cpp)
+    target_include_directories(vrft_demo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_include_directories(frit_demo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     if(ADAPTIVE_CONTROL_BUILD_TESTS)
         add_test(NAME vrft_demo COMMAND vrft_demo)
         add_test(NAME frit_demo COMMAND frit_demo)
-        # Samples report their validation in stdout and always return zero.
+        # Samples print their workflow; numerical comparisons belong in SIL.
         set_tests_properties(vrft_demo PROPERTIES
-            PASS_REGULAR_EXPRESSION "VRFT result: PASS"
-            FAIL_REGULAR_EXPRESSION "FAIL")
+            PASS_REGULAR_EXPRESSION "VRFT simulation complete."
+            FAIL_REGULAR_EXPRESSION "ERROR:")
         set_tests_properties(frit_demo PROPERTIES
-            PASS_REGULAR_EXPRESSION "FRIT result: PASS"
-            FAIL_REGULAR_EXPRESSION "FAIL")
+            PASS_REGULAR_EXPRESSION "FRIT simulation complete."
+            FAIL_REGULAR_EXPRESSION "ERROR:")
     endif()
 endif()
