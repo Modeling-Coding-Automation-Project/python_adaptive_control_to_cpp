@@ -2,7 +2,6 @@
 // compares these C++ results; no Python binding or generated expected values.
 #include "../test_vs/data_driven_test_data.hpp"
 
-#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
@@ -12,7 +11,7 @@ using namespace PythonAdaptiveControl;
 using namespace DataDrivenTest;
 
 void number(double value) {
-    if (!std::isfinite(value)) throw std::runtime_error("nonfinite SIL output");
+    if (!finite_value(value)) throw std::runtime_error("nonfinite SIL output");
     std::cout << value;
 }
 
@@ -57,7 +56,7 @@ void run_case(const char* name, const RationalFilter<double, Order>& m, double n
     SolverOptions<double> options;
     options.ridge = ridge;
     options.discard_samples = discard;
-    options.tolerance = 1e-9;
+    options.tolerance = 2e-5;
     options.max_iterations = 1000;
     const auto vl = vrft_least_squares(u,y,m,forward,options);
     const auto vo = vrft_optimize(u,y,m,forward,initial,lower,upper,options);

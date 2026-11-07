@@ -1,10 +1,10 @@
 #ifndef PYTHON_ADAPTIVE_CONTROL_DATA_DRIVEN_HPP_
 #define PYTHON_ADAPTIVE_CONTROL_DATA_DRIVEN_HPP_
 
-#include "common.hpp"
-#include "filter.hpp"
-#include "frit.hpp"
-#include "least_squares.hpp"
-#include "vrft.hpp"
+#include "data_driven_common.hpp"
+#include "data_driven_filter.hpp"
+#include "data_driven_frit.hpp"
+#include "data_driven_least_squares.hpp"
+#include "data_driven_vrft.hpp"
 
 #endif

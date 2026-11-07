@@ -1,9 +1,9 @@
 #ifndef PYTHON_ADAPTIVE_CONTROL_FRIT_HPP_
 #define PYTHON_ADAPTIVE_CONTROL_FRIT_HPP_
 
-#include "filter.hpp"
-#include "least_squares.hpp"
-#include "optimization.hpp"
+#include "data_driven_filter.hpp"
+#include "data_driven_least_squares.hpp"
+#include "data_driven_optimization.hpp"
 
 namespace PythonAdaptiveControl {
 

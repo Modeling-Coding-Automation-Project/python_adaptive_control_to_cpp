@@ -489,4 +489,6 @@ $RECYCLE.BIN/
 # Local build and generated simulation artifacts.
 /build*/
 /sample/results/
+/cache/
+/データ駆動制御入門.pdf
 

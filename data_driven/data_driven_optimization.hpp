@@ -1,13 +1,13 @@
 #ifndef PYTHON_ADAPTIVE_CONTROL_OPTIMIZATION_HPP_
 #define PYTHON_ADAPTIVE_CONTROL_OPTIMIZATION_HPP_
 
-#include "common.hpp"
+#include "data_driven_common.hpp"
 #include "python_numpy.hpp"
 
 namespace PythonAdaptiveControl {
 namespace detail {
-// A distinct vector type confines the norm customization below to this adapter.
-// Arithmetic in the backend returns a dense matrix, converted back here.
+// The upstream scalar ring buffer requires a scalar-to-vector conversion.
+// All numerical operations use the existing math backend.
 template <typename T, std::size_t P>
 class ParameterVector : public PythonNumpy::DenseMatrix_Type<T, P, 1> {
 public:
@@ -24,9 +24,10 @@ public:
 } // namespace detail
 } // namespace PythonAdaptiveControl
 
-// The pinned backend norm(0) is 1e-5 because its sqrt clamps the argument.
-// Customize normalization ONLY for the private parameter vector; ordinary
-// backend matrices retain their original behavior and include order is safe.
+// Normalize the parameter vector before calling the existing square root.
+// The argument then lies in [1,P], keeping the backend's small-argument floor
+// from distorting PANOC's Lipschitz estimate. This uses PythonMath only, and
+// does not change normalization of any existing dependency matrix type.
 namespace PythonNumpy {
 namespace NormalizationOperation {
 template <typename T, std::size_t P>
@@ -34,10 +35,22 @@ struct Normalizer<PythonAdaptiveControl::detail::ParameterVector<T, P>,
                   std::false_type> {
   static T
   norm(const PythonAdaptiveControl::detail::ParameterVector<T, P> &matrix) {
-    T value = T(0);
-    for (std::size_t j = 0; j < P; ++j)
-      value = std::hypot(value, matrix(j, 0));
-    return value;
+    T scale = T(0);
+    for (std::size_t j = 0; j < P; ++j) {
+      if (!PythonAdaptiveControl::detail::finite(matrix(j, 0)))
+        return std::numeric_limits<T>::quiet_NaN();
+      const T magnitude = PythonMath::abs(matrix(j, 0));
+      if (magnitude > scale)
+        scale = magnitude;
+    }
+    if (scale == T(0))
+      return T(0);
+    T sum = T(0);
+    for (std::size_t j = 0; j < P; ++j) {
+      const T normalized = matrix(j, 0) / scale;
+      sum += normalized * normalized;
+    }
+    return scale * PythonMath::sqrt(sum);
   }
 };
 } // namespace NormalizationOperation
@@ -187,7 +200,8 @@ FitResult<T, P> optimize_parameters(const Objective &objective,
   if (!finite(gamma) || !finite(residual_squared))
     result.status = Status::NON_FINITE;
   else if (result.status == Status::SUCCESS &&
-           std::sqrt(residual_squared) > T(10) * options.tolerance)
+           residual_squared > (T(10) * options.tolerance) *
+                                  (T(10) * options.tolerance))
     result.status = Status::ITERATION_LIMIT;
   return result;
 }

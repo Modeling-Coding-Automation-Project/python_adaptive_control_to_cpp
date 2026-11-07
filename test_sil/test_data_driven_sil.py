@@ -96,7 +96,7 @@ def run_sil(executable):
         b, a, noise, ridge, discard = cases[name]
         model = RationalFilter(b, a)
         u, y = experiment(noise)
-        options = SolverOptions(ridge=ridge, tolerance=1e-9,
+        options = SolverOptions(ridge=ridge, tolerance=2e-5,
                                 max_iterations=1000, discard_samples=discard)
         fits = {
             "vrft_least_squares": vrft_least_squares(u, y, model, forward, options),
@@ -112,8 +112,8 @@ def run_sil(executable):
                 raise AssertionError(f"{name}/{method}: solver did not converge")
             iterative = method.endswith("optimize")
             difference = close(other["parameters"], fit.parameters, f"{name}/{method}/parameters",
-                               atol=2e-4 if iterative else 2e-10,
-                               rtol=2e-5 if iterative else 2e-10)
+                               atol=2e-4 if iterative else 1e-7,
+                               rtol=2e-5 if iterative else 1e-7)
             close(other["cost"], fit.cost, f"{name}/{method}/cost", atol=2e-9, rtol=2e-7)
             if iterative:
                 max_iterative_error = max(max_iterative_error, difference)

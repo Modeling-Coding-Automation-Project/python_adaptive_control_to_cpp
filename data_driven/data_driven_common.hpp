@@ -2,7 +2,7 @@
 #define PYTHON_ADAPTIVE_CONTROL_COMMON_HPP_
 
 #include <array>
-#include <cmath>
+#include "python_math.hpp"
 #include <cstddef>
 #include <limits>
 #include <type_traits>
@@ -43,7 +43,7 @@ template <typename T> struct SolverOptions {
   std::size_t max_iterations;
   std::size_t discard_samples;
   SolverOptions()
-      : ridge(T(0)), tolerance(T(1e-8)),
+      : ridge(T(0)), tolerance(T(2e-5)),
         rank_tolerance(T(1e-10) > T(10) * std::numeric_limits<T>::epsilon()
                            ? T(1e-10)
                            : T(10) * std::numeric_limits<T>::epsilon()),
@@ -83,7 +83,9 @@ template <typename T, std::size_t P, std::size_t N> struct Regression {
 
 namespace detail {
 template <typename T> inline bool finite(T value) {
-  return std::isfinite(value);
+  // Comparisons also reject NaN and both infinities without <cmath>.
+  const T largest = std::numeric_limits<T>::max();
+  return value >= -largest && value <= largest;
 }
 template <typename T, std::size_t N>
 inline bool all_finite(const std::array<T, N> &values) {

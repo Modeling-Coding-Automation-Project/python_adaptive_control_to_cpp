@@ -6,10 +6,17 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 namespace DataDrivenTest {
 
 static const std::size_t samples = 256;
+
+// Independent finite check without the standard mathematical library.
+template <typename T> bool finite_value(T value) {
+    const T largest = std::numeric_limits<T>::max();
+    return value >= -largest && value <= largest;
+}
 
 // Zero-state open-loop experiment. Integer PRNG makes the fixture portable
 // between Python and C++ without depending on a library's RNG implementation.

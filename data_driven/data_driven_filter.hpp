@@ -1,7 +1,7 @@
 #ifndef PYTHON_ADAPTIVE_CONTROL_FILTER_HPP_
 #define PYTHON_ADAPTIVE_CONTROL_FILTER_HPP_
 
-#include "common.hpp"
+#include "data_driven_common.hpp"
 
 namespace PythonAdaptiveControl {
 

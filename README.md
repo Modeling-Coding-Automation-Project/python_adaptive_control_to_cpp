@@ -9,7 +9,7 @@ Python NumPy版と対応する、固定サイズ・ヘッダオンリーのC++11
 | FRIT | **逆制御器が線形**の場合のQR最小二乗法 | 通常の制御器の逆を計算し、解析勾配と既存PANOCで最小化 |
 
 FRITの直接解法が返すのは逆制御器の係数です。通常のPIDゲインとは区別してください。
-詳細な式・適用条件は [アルゴリズム仕様](document/algorithms.md) に記載しています。
+詳細な式・適用条件は [アルゴリズム仕様](document/vrft_frit_algorithms.md) に記載しています。
 
 ## 構成
 
@@ -17,7 +17,7 @@ FRITの直接解法が返すのは逆制御器の係数です。通常のPIDゲ�
 - `external_libraries/MCAP_python_adaptive_control/`: NumPy参照実装、Pythonテスト、サンプル。
 - `test_vs/`: MCAP_testerによるGCC単体テスト。Visual Studioプロジェクトは使用しません。
 - `test_sil/`: 同一データによるPython/C++一致性検証。
-- `sample/`: C++/PythonのPI調整例、`simulation_manager`。
+- `sample/`: VRFT／FRIT別のPI調整例、PythonからのC++コード生成、`simulation_manager`。
 - `.github/`: GitHub ActionsとDependabot。
 
 ## ビルドと確認
@@ -29,14 +29,23 @@ git submodule update --init --recursive
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements.txt
+python sample/vrft_demo.py
+python sample/frit_demo.py
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++
 cmake --build build --parallel 2
 ctest --test-dir build --output-on-failure
 python -m pytest external_libraries/MCAP_python_adaptive_control/tests -q
 python test_sil/test_data_driven_sil.py --executable build/data_driven_sil
-python sample/data_driven_demo.py
-./build/data_driven_demo
+python test_sil/test_codegen.py
+./build/vrft_demo
+./build/frit_demo
 ```
+
+Pythonサンプルは通常実行で `SimulationPlotterDash` のグラフをHTMLへ保存し、
+ブラウザを開きます。画面を開けない環境では表示された保存先を開いてください。
+表示不要の自動実行では `--no-plot` を指定します。
+同時に `sample/generated/` へC++設定ヘッダを生成します。
+生成済みヘッダも含めているため、C++だけのビルドにはPythonは不要です。
 
 組み込み先のCMakeからは `add_subdirectory(...)` と
 `target_link_libraries(your_target PRIVATE MCAP::AdaptiveControl)` を使用できます。
@@ -46,6 +55,11 @@ python sample/data_driven_demo.py
 コアはSISO・離散時間・零初期状態を対象とします。データ長・パラメータ数・
 フィルタ次数はC++のコンパイル時に決定します。調整結果は状態コードとともに返り、
 実機に適用する前に対象の閉ループ応答を検証する必要があります。
+
+数値演算には `python_math_to_cpp`、直接最小二乗には
+`python_numpy_linalg_qr.hpp` の既存QRを使用します。
+反復ソルバーの既定許容値は `2e-5` です。これは射影残差の許容値であり、
+推定係数そのものの絶対誤差とは異なります。
 
 非公開サブモジュールをGitHub Actionsから取得するには、各依存リポジトリの
 読み取り権限を持つ `MCAP_SUBMODULE_TOKEN` シークレットを設定してください。
