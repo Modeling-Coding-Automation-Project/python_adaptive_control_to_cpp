@@ -10,6 +10,7 @@ Python NumPy版と対応する、固定サイズ・ヘッダオンリーのC++11
 
 FRITの直接解法が返すのは逆制御器の係数です。通常のPIDゲインとは区別してください。
 詳細な式・適用条件は [アルゴリズム仕様](document/vrft_frit_algorithms.md) に記載しています。
+既存制御ライブラリへの変更案は [最小二乗クラスの切片選択追加](document/least_squares_intercept_extension.md) を参照してください。
 
 ## 構成
 
