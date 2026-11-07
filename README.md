@@ -45,8 +45,10 @@ python test_sil/test_codegen.py
 Pythonサンプルは通常実行で `SimulationPlotterDash` のグラフをHTMLへ保存し、
 ブラウザを開きます。画面を開けない環境では表示された保存先を開いてください。
 表示不要の自動実行では `--no-plot` を指定します。
-同時に `sample/generated/` へC++設定ヘッダを生成します。
+同時にリポジトリ直下へ `vrft_demo.hpp`／`frit_demo.hpp` を生成します。
+生成先は実行時のカレントディレクトリに依存しません。
 生成済みヘッダも含めているため、C++だけのビルドにはPythonは不要です。
+C++サンプルは数値結果と検証のPASS／FAILをターミナルへ表示し、`return 0;` で終了します。
 
 組み込み先のCMakeからは `add_subdirectory(...)` と
 `target_link_libraries(your_target PRIVATE MCAP::AdaptiveControl)` を使用できます。

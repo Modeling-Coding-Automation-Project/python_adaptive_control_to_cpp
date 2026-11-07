@@ -50,5 +50,12 @@ if(ADAPTIVE_CONTROL_BUILD_SAMPLES)
     if(ADAPTIVE_CONTROL_BUILD_TESTS)
         add_test(NAME vrft_demo COMMAND vrft_demo)
         add_test(NAME frit_demo COMMAND frit_demo)
+        # Samples report their validation in stdout and always return zero.
+        set_tests_properties(vrft_demo PROPERTIES
+            PASS_REGULAR_EXPRESSION "VRFT result: PASS"
+            FAIL_REGULAR_EXPRESSION "FAIL")
+        set_tests_properties(frit_demo PROPERTIES
+            PASS_REGULAR_EXPRESSION "FRIT result: PASS"
+            FAIL_REGULAR_EXPRESSION "FAIL")
     endif()
 endif()

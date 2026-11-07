@@ -4,8 +4,8 @@
 
 | 手法 | Python設計・コード生成・表示 | 生成される設定 | C++実行例 |
 | --- | --- | --- | --- |
-| VRFT | `vrft_demo.py` | `generated/vrft_demo.hpp` | `vrft_demo.cpp` |
-| FRIT | `frit_demo.py` | `generated/frit_demo.hpp` | `frit_demo.cpp` |
+| VRFT | `vrft_demo.py` | `../vrft_demo.hpp` | `vrft_demo.cpp` |
+| FRIT | `frit_demo.py` | `../frit_demo.hpp` | `frit_demo.cpp` |
 
 どちらも直接最小二乗法とPANOCを比較します。サンプリング周期は0.1秒、
 プラントは `G=0.2 z^-1/(1-0.8 z^-1)`、目標モデルは
@@ -38,6 +38,9 @@ python sample/frit_demo.py --no-plot
 
 MPCリポジトリのdeployクラスと同様に、Pythonで設計したモデル・制御器を
 `data_driven/data_driven_deploy.py` の `DataDrivenDeploy` でC++ヘッダへ変換します。
+importには `data_driven.data_driven_deploy` のように、リポジトリ内の階層を明示します。
+既定の生成先はリポジトリ直下で、実行時のカレントディレクトリには依存しません。
+別の出力先が必要な場合は `--output-dir` で指定できます。
 生成ヘッダには固定サイズの型、実験データ、目標モデル、基底、オプション、
 チューナー生成関数、Pythonで調整済みの制御器生成関数が含まれます。
 
@@ -50,6 +53,8 @@ cmake --build build --parallel 2
 
 C++サンプルは生成ヘッダを読み込み、同じデータで調整を再実行してPythonの係数と
 比較します。また、Pythonで調整済みの制御器をそのまま実行する例も含みます。
+数値結果と検証のPASS／FAILをターミナルに表示し、最後は `return 0;` で終了します。
+CTestとコード生成統合テストは、標準出力のPASS／FAILを検証します。
 生成済みヘッダを追跡しているため、Pythonを実行できない環境でもビルドできます。
 Python側のモデルや設定を変更したときは、サンプルを実行して再生成してください。
 
@@ -81,7 +86,8 @@ FRIT直接版は逆制御器
 調整済み制御器は、状態を保持して1サンプルずつ実行します。
 
 ```cpp
-// #include "generated/vrft_demo.hpp"
+// sample/内のC++ソースから読み込む場合:
+// #include "../vrft_demo.hpp"
 auto controller = vrft_demo::make_optimized_controller();
 auto state = controller.state();
 double control_input = 0.0;

@@ -1,5 +1,5 @@
 // Run sample/frit_demo.py to regenerate this Python-designed configuration.
-#include "generated/frit_demo.hpp"
+#include "frit_demo.hpp"
 #include "data_driven_sample_common.hpp"
 
 int main() {
@@ -16,13 +16,18 @@ int main() {
   // Direct FRIT identifies coefficients of C^-1, not forward PI gains.
   // Invert the identified transfer function before executing the controller.
   frit_demo::Filter direct_controller;
-  if (frit_demo::make_inverse_basis()
-          .controller(direct.parameters)
-          .inverse(direct_controller) != PythonAdaptiveControl::Status::SUCCESS)
-    return 1;
-  const bool direct_ok = DataDrivenSample::show(
-      "FRIT inverse least squares", direct,
-      frit_demo::least_squares_parameters(), direct_controller, model);
+  const auto inverse_status = frit_demo::make_inverse_basis()
+                                  .controller(direct.parameters)
+                                  .inverse(direct_controller);
+  bool direct_ok = false;
+  if (inverse_status == PythonAdaptiveControl::Status::SUCCESS) {
+    direct_ok = DataDrivenSample::show("FRIT inverse least squares", direct,
+                                       frit_demo::least_squares_parameters(),
+                                       direct_controller, model);
+  } else {
+    std::cout << "FRIT controller inversion failed: "
+              << PythonAdaptiveControl::status_name(inverse_status) << '\n';
+  }
   const bool iterative_ok = DataDrivenSample::show(
       "FRIT PANOC", iterative, frit_demo::optimized_parameters(),
       frit_demo::make_forward_basis().controller(iterative.parameters), model);
@@ -32,9 +37,17 @@ int main() {
       frit_demo::make_least_squares_controller(), model);
   std::cout << "Python-generated controller step MSE: " << deployed_error
             << '\n';
-  return direct_ok && iterative_ok &&
-                 PythonAdaptiveControl::detail::finite(deployed_error) &&
-                 deployed_error < 1e-7
-             ? 0
-             : 1;
+  const bool deployed_ok =
+      PythonAdaptiveControl::detail::finite(deployed_error) &&
+      deployed_error < 1e-7;
+  std::cout << "FRIT inverse least squares validation: "
+            << (direct_ok ? "PASS" : "FAIL") << '\n'
+            << "FRIT PANOC validation: " << (iterative_ok ? "PASS" : "FAIL")
+            << '\n'
+            << "Python-generated controller validation: "
+            << (deployed_ok ? "PASS" : "FAIL") << '\n'
+            << "FRIT result: "
+            << (direct_ok && iterative_ok && deployed_ok ? "PASS" : "FAIL")
+            << '\n';
+  return 0;
 }

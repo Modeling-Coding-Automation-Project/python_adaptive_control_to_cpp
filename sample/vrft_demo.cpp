@@ -1,5 +1,5 @@
 // Run sample/vrft_demo.py to regenerate this Python-designed configuration.
-#include "generated/vrft_demo.hpp"
+#include "vrft_demo.hpp"
 #include "data_driven_sample_common.hpp"
 
 int main() {
@@ -25,9 +25,17 @@ int main() {
       DataDrivenSample::step_mse(vrft_demo::make_optimized_controller(), model);
   std::cout << "Python-generated controller step MSE: " << deployed_error
             << '\n';
-  return direct_ok && iterative_ok &&
-                 PythonAdaptiveControl::detail::finite(deployed_error) &&
-                 deployed_error < 1e-7
-             ? 0
-             : 1;
+  const bool deployed_ok =
+      PythonAdaptiveControl::detail::finite(deployed_error) &&
+      deployed_error < 1e-7;
+  std::cout << "VRFT least squares validation: "
+            << (direct_ok ? "PASS" : "FAIL") << '\n'
+            << "VRFT PANOC validation: " << (iterative_ok ? "PASS" : "FAIL")
+            << '\n'
+            << "Python-generated controller validation: "
+            << (deployed_ok ? "PASS" : "FAIL") << '\n'
+            << "VRFT result: "
+            << (direct_ok && iterative_ok && deployed_ok ? "PASS" : "FAIL")
+            << '\n';
+  return 0;
 }

@@ -28,8 +28,9 @@ def command(arguments, cwd, expect_success=True):
 def run_codegen_checks():
     with tempfile.TemporaryDirectory(prefix="data-driven-codegen-") as directory:
         workspace = Path(directory)
-        generated = workspace / "sample" / "generated"
-        generated.mkdir(parents=True)
+        # Mirror the repository layout: generated headers live beside sample/.
+        generated = workspace
+        (workspace / "sample").mkdir()
         for method in ("vrft", "frit"):
             source = ROOT / "sample" / f"{method}_demo.py"
             counterpart = PYTHON_SAMPLE / source.name
@@ -51,7 +52,7 @@ def run_codegen_checks():
         shutil.copyfile(ROOT / "sample" / "data_driven_sample_common.hpp",
                         workspace / "sample" / "data_driven_sample_common.hpp")
         # Reuse the library's declared include dependencies; compile the copied
-        # demos so their relative generated/ includes resolve to the fresh data.
+        # demos so their ../ includes resolve to the freshly generated headers.
         escaped_root = ROOT.as_posix().replace('"', '\\"')
         (workspace / "CMakeLists.txt").write_text(
             'cmake_minimum_required(VERSION 3.16)\n'
@@ -66,6 +67,10 @@ def run_codegen_checks():
             '  set_target_properties(${method} PROPERTIES CXX_STANDARD 11 '
             'CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)\n'
             '  add_test(NAME ${method}_generated_demo COMMAND ${method})\n'
+            '  string(TOUPPER "${method}" method_name)\n'
+            '  set_tests_properties(${method}_generated_demo PROPERTIES\n'
+            '    PASS_REGULAR_EXPRESSION "${method_name} result: PASS"\n'
+            '    FAIL_REGULAR_EXPRESSION "FAIL")\n'
             'endforeach()\n')
         build = workspace / "build"
         command(["cmake", "-S", workspace, "-B", build,

@@ -4,27 +4,23 @@ Run normally to generate C++ (in the C++ repository) and open the Dash plot.
 Use --no-plot for automated runs. This file is identical in both repositories.
 """
 import argparse
+from importlib import import_module
 from pathlib import Path
 import sys
 
 import numpy as np
 
 
-# Find this checkout, independently of the working directory or sample depth.
-REPOSITORY = next(
-    parent for parent in Path(__file__).resolve().parents
-    if (parent / "data_driven").is_dir()
-    and ((parent / "CMakeLists.txt").is_file()
-         or (parent / "data_driven" / "__init__.py").is_file())
-)
-PYTHON_LIBRARY = REPOSITORY / "external_libraries" / "MCAP_python_adaptive_control"
-if not PYTHON_LIBRARY.is_dir():
-    PYTHON_LIBRARY = REPOSITORY
-sys.path.insert(0, str(PYTHON_LIBRARY))
-from data_driven import (  # noqa: E402
-    LinearControllerBasis, RationalFilter, SolverOptions,
-    vrft_least_squares, vrft_optimize,
-)
+# The C++ checkout uses sample/, and the Python checkout uses sample/data_driven/.
+SAMPLE_DIRECTORY = Path(__file__).resolve().parent
+REPOSITORY = (SAMPLE_DIRECTORY.parent if SAMPLE_DIRECTORY.name == "sample"
+              else SAMPLE_DIRECTORY.parents[1])
+sys.path.insert(0, str(REPOSITORY))
+if (REPOSITORY / "CMakeLists.txt").is_file():
+    from external_libraries.MCAP_python_adaptive_control import data_driven as adaptive_control
+else:
+    # In the standalone Python checkout, data_driven is the library itself.
+    adaptive_control = import_module("data_driven")
 
 
 def closed_loop(controller, reference):
@@ -48,17 +44,20 @@ def run_demo():
     for index in range(u.size):
         random_state = (1664525 * random_state + 1013904223) & 0xFFFFFFFF
         u[index] = (random_state >> 16) / 32768.0 - 1.0
-    plant = RationalFilter([0., .2], [1., -.8])
+    plant = adaptive_control.RationalFilter([0., .2], [1., -.8])
     y = plant.filter(u)
-    model = RationalFilter([0., .3], [1., -.7])
-    basis = LinearControllerBasis.pi(sample_time)
+    model = adaptive_control.RationalFilter([0., .3], [1., -.7])
+    basis = adaptive_control.LinearControllerBasis.pi(sample_time)
     initial = np.array([.7, 1.0])
     lower, upper = np.array([.1, .1]), np.array([3., 6.])
     # Use the same practical residual tolerance as the paired C++ deployment.
-    options = SolverOptions(tolerance=2e-5, max_iterations=1000)
+    options = adaptive_control.SolverOptions(
+        tolerance=2e-5, max_iterations=1000)
     fits = {
-        "VRFT least squares": vrft_least_squares(u, y, model, basis, options),
-        "VRFT PANOC": vrft_optimize(u, y, model, basis, initial, lower, upper, options),
+        "VRFT least squares": adaptive_control.vrft_least_squares(
+            u, y, model, basis, options),
+        "VRFT PANOC": adaptive_control.vrft_optimize(
+            u, y, model, basis, initial, lower, upper, options),
     }
     if not all(result.success for result in fits.values()):
         raise RuntimeError("Tuning failed: " + ", ".join(
@@ -87,10 +86,8 @@ def generate_cpp(result, output_dir=None, check=False):
             raise RuntimeError(
                 "C++ generation is available in python_adaptive_control_to_cpp")
         return None
-    sys.path.insert(0, str(deploy_module.parent))
-    from data_driven_deploy import DataDrivenDeploy
-    destination = (REPOSITORY / "sample" / "generated" if output_dir is None
-                   else Path(output_dir))
+    from data_driven.data_driven_deploy import DataDrivenDeploy
+    destination = REPOSITORY if output_dir is None else Path(output_dir)
     path = DataDrivenDeploy.generate_vrft_cpp_code(
         result, destination, check=check)
     print(f"C++ header {'verified' if check else 'generated'}: {path}")
@@ -99,8 +96,7 @@ def generate_cpp(result, output_dir=None, check=False):
 
 def plot_demo(result):
     # Use this checkout's simulation_manager, including when run from elsewhere.
-    sys.path.insert(0, str(REPOSITORY / "sample" / "simulation_manager"))
-    from visualize.simulation_plotter_dash import SimulationPlotterDash
+    from sample.simulation_manager.visualize.simulation_plotter_dash import SimulationPlotterDash
     plotter = SimulationPlotterDash(activate_dump=False)
     signals = {"reference": result["reference"], "desired": result["desired"],
                **result["trajectories"]}
@@ -117,7 +113,7 @@ def main():
     parser.add_argument("--no-plot", action="store_true",
                         help="skip interactive HTML plotting for automated runs")
     parser.add_argument("--output-dir", type=Path,
-                        help="C++ generated-header destination")
+                        help="C++ generated-header destination (default: repository root)")
     parser.add_argument("--check-generated", action="store_true",
                         help="verify the generated header without changing it")
     args = parser.parse_args()

@@ -37,7 +37,8 @@ FRIT直接版は書籍§4.5.1の逆線形パラメータ化を用いた厳密な
   Pythonからのコード生成は `data_driven_deploy.py` にあります。
 - `test_vs/`：`MCAP_tester` とGCCで実行する単体テスト。Visual Studioプロジェクトは作成していません。
 - `test_sil/`：C++が出力する数値をPythonで比較するSIL。pybind11を必要としません。
-- `sample/`：VRFTとFRITに分けたC++/Python例、生成ヘッダ、`simulation_manager`。
+- `sample/`：VRFTとFRITに分けたC++/Python例、`simulation_manager`。
+- `vrft_demo.hpp`、`frit_demo.hpp`：リポジトリ直下の生成済みサンプル設定ヘッダ。
 - `.github/`：C++テスト、Pythonテスト、サンプル、SIL、サニタイザ、Dependabot。
 - `document/`：数式・適用条件・本レポート。
 
@@ -126,13 +127,19 @@ PANOCのコールバックは上流の `std::function` を使用するため、�
 `sample/vrft_demo.py` と `sample/frit_demo.py` は、Python参照リポジトリの
 `sample/data_driven/` にある同名ファイルとバイト単位で同一です。
 それぞれ自身の場所からリポジトリを見つけ、ライブラリを読み込みます。
+本リポジトリでは `external_libraries.MCAP_python_adaptive_control.data_driven` と
+`data_driven.data_driven_deploy` のように、import先の階層を明示しています。
 旧 `runpy` ラッパーと統合デモは削除し、他方のサンプルへの参照をなくしました。
 
 本リポジトリではPythonサンプルの実行時に `DataDrivenDeploy` を呼び、
-`sample/generated/vrft_demo.hpp` または `frit_demo.hpp` を生成します。
+リポジトリ直下へ `vrft_demo.hpp` または `frit_demo.hpp` を生成します。
+既定の生成先は実行時のカレントディレクトリに依存せず、`--output-dir` で変更できます。
 モデル、基底、実験データ、オプション、チューナーと調整済み制御器の生成関数を
 C++へ出力し、対応するC++サンプルが実際に使用します。
 MPCリポジトリの「Python設計→deployクラス→生成ヘッダ→C++実行」に合わせた構成です。
+生成済みヘッダは引き続き追跡し、Pythonを実行しないC++ビルドにも対応します。
+C++サンプルは数値結果と検証のPASS／FAILをターミナルに表示して `return 0;` で終了し、
+CTestとコード生成統合テストは標準出力のPASS／FAILを検証します。
 
 通常実行では `SimulationPlotterDash` でHTMLを保存し、パスを表示してブラウザを開きます。
 画面表示を省く場合だけ `--no-plot` を付けます。Plotlyを依存に追加しました。
