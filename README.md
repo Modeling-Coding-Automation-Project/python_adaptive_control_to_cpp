@@ -47,4 +47,8 @@ python sample/data_driven_demo.py
 フィルタ次数はC++のコンパイル時に決定します。調整結果は状態コードとともに返り、
 実機に適用する前に対象の閉ループ応答を検証する必要があります。
 
+非公開サブモジュールをGitHub Actionsから取得するには、各依存リポジトリの
+読み取り権限を持つ `MCAP_SUBMODULE_TOKEN` シークレットを設定してください。
+設定手順は [検証レポートのCI設定](document/implementation_report.md#github-actionsの設定) に記載しています。
+
 [実装・検証レポート](document/implementation_report.md) / [MIT License](LICENSE.txt)
