@@ -19,61 +19,47 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v7
       with:
-        submodules: recursive
+        submodules: false
         persist-credentials: false
+    - name: Checkout C++ dependencies
+      run: 'git submodule update --init --depth 1 -- external_libraries/base_utility_cpp
+        external_libraries/python_math_to_cpp external_libraries/python_numpy_to_cpp
+        external_libraries/python_control_to_cpp external_libraries/python_optimization_to_cpp
+
+        '
     - name: Install dependencies
       run: 'sudo apt update
 
-        sudo apt install -y build-essential
-
-        sudo apt install -y cmake
-
-        sudo apt install -y python3
-
-        sudo apt install -y python3-venv
-
-        '
-    - name: Set up Python environment
-      run: 'python3 -m venv /opt/venv_py_MCAP
-
-        /opt/venv_py_MCAP/bin/pip install --upgrade pip
-
-        /opt/venv_py_MCAP/bin/pip install --upgrade setuptools
-
-        /opt/venv_py_MCAP/bin/pip install -r requirements.txt
+        sudo apt install -y g++
 
         '
     - name: Run samples
-      env:
-        CI: 'true'
-      run: 'cmp ./sample/vrft_demo.py ./external_libraries/MCAP_python_adaptive_control/sample/data_driven/vrft_demo.py
-
-        cmp ./sample/frit_demo.py ./external_libraries/MCAP_python_adaptive_control/sample/data_driven/frit_demo.py
-
-        /opt/venv_py_MCAP/bin/python3 ./sample/vrft_demo.py
-
-        g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./ -I ./data_driven
+      run: 'g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./data_driven
         -I ./external_libraries/python_optimization_to_cpp/optimization_utility
         -I ./external_libraries/python_optimization_to_cpp/python_optimization -I
         ./external_libraries/python_control_to_cpp/python_control -I ./external_libraries/python_numpy_to_cpp/python_numpy
         -I ./external_libraries/python_numpy_to_cpp/base_matrix -I ./external_libraries/python_math_to_cpp/base_math
         -I ./external_libraries/python_math_to_cpp/python_math -I ./external_libraries/base_utility_cpp/base_utility
-        -o ./sample/app ./sample/vrft_demo.cpp
+        -o ./sample/app ./sample/data_driven/vrft_demo.cpp
 
-        ./sample/app
+        ./sample/app 2>&1 | tee /tmp/vrft_demo.log
 
-        /opt/venv_py_MCAP/bin/python3 ./sample/frit_demo.py
+        if grep -q "ERROR:" /tmp/vrft_demo.log; then exit 1; fi
 
-        g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./ -I ./data_driven
+        grep -q "VRFT simulation complete." /tmp/vrft_demo.log
+
+        g++ -std=c++11 -Wall -Wextra -Wpedantic -Werror -O2 -I ./data_driven
         -I ./external_libraries/python_optimization_to_cpp/optimization_utility
         -I ./external_libraries/python_optimization_to_cpp/python_optimization -I
         ./external_libraries/python_control_to_cpp/python_control -I ./external_libraries/python_numpy_to_cpp/python_numpy
         -I ./external_libraries/python_numpy_to_cpp/base_matrix -I ./external_libraries/python_math_to_cpp/base_math
         -I ./external_libraries/python_math_to_cpp/python_math -I ./external_libraries/base_utility_cpp/base_utility
-        -o ./sample/app ./sample/frit_demo.cpp
+        -o ./sample/app ./sample/data_driven/frit_demo.cpp
 
-        ./sample/app
+        ./sample/app 2>&1 | tee /tmp/frit_demo.log
+
+        if grep -q "ERROR:" /tmp/frit_demo.log; then exit 1; fi
+
+        grep -q "FRIT simulation complete." /tmp/frit_demo.log
 
         '
-    - name: Test code generation
-      run: '/opt/venv_py_MCAP/bin/python3 ./test_sil/test_codegen.py'

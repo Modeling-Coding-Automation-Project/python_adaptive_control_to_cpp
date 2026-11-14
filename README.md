@@ -18,44 +18,44 @@ FRITの直接解法が返すのは逆制御器の係数です。通常のPIDゲ�
 - `external_libraries/MCAP_python_adaptive_control/`: NumPy参照実装、Pythonテスト、サンプル。
 - `test_vs/`: MCAP_testerによるGCC単体テスト。Visual Studioプロジェクトは使用しません。
 - `test_sil/`: 同一データによるPython/C++一致性検証。
-- `sample/`: VRFT／FRIT別のPI調整例、PythonからのC++コード生成、`simulation_manager`。
+- `sample/data_driven/`: C++だけで実行するVRFT／FRIT別のPI調整例。
 - `.github/`: GitHub ActionsとDependabot。
 
 ## ビルドと確認
 
-GCC、CMake 3.16以降、Python 3.10以降を使用します。
+C++サンプルと単体テストはGCCとCMake 3.16以降だけでビルドできます。
+Pythonの事前実行や生成ヘッダは不要です。
 
 ```sh
 git submodule update --init --recursive
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r requirements.txt
-python sample/vrft_demo.py
-python sample/frit_demo.py
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++
 cmake --build build --parallel 2
 ctest --test-dir build --output-on-failure
-python -m pytest external_libraries/MCAP_python_adaptive_control/tests -q
-python test_sil/test_data_driven_sil.py --executable build/data_driven_sil
-python test_sil/test_codegen.py
 ./build/vrft_demo
 ./build/frit_demo
 ```
 
-Pythonサンプルは通常実行で `SimulationPlotterDash` のグラフをHTMLへ保存し、
-ブラウザを開きます。画面を開けない環境では表示された保存先を開いてください。
-表示不要の自動実行では `--no-plot` を指定します。
-設計した問題のサイズ・目標モデル・制御器基底などを、リポジトリ直下の
-`vrft_demo.hpp`／`frit_demo.hpp` へ生成します。生成先はカレントディレクトリに依存しません。
-生成ヘッダは追跡しないため、C++サンプルのビルド前に対応するPythonを実行してください。
+両デモは初期PIを固定した閉ループ実験で128点の入出力を収集し、
+同じデータを使ってオフラインで直接法とPANOCを実行します。
+その後、初期・直接法・反復法の制御器を独立した零初期状態から100時刻実行します。
+C++は実験データ、調整状態・係数、各時刻の参照値・目標応答・出力・操作量、
+追従RMSEをターミナルへ表示します。
+Pythonの辞書に対応する設定・結果はC++の構造体で保持します。
 
-PythonとC++は、実験データの収集、直接法と反復法による調整、調整した制御器の構成、
-閉ループシミュレーションを同じ順序で実行します。C++も入出力データを収集して調整を行い、
-各時刻の参照値・目標応答・プラント出力・操作量をターミナルへ表示して `return 0;` で終了します。
-時系列と調整結果のPython／C++一致性は `test_sil/test_codegen.py` で検証します。
+Python参照実装とのSILを実行する場合は、Python 3.10以降と依存パッケージを追加します。
 
-Pythonを使わずにC++ライブラリと単体テストだけをビルドする場合は、
-CMakeに `-DADAPTIVE_CONTROL_BUILD_SAMPLES=OFF` を指定します。
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pytest external_libraries/MCAP_python_adaptive_control/tests -q
+python test_sil/test_data_driven_sil.py --executable build/data_driven_sil
+python test_sil/test_samples.py
+```
+
+対応するPythonデモは `external_libraries/MCAP_python_adaptive_control/sample/data_driven/`
+にあります。Python側は `SimulationPlotterDash` で描画し、C++側はプロットを行いません。
+両言語の計算手順とデータの対応、設定変更方法は [サンプル説明](sample/README.md) を参照してください。
 
 組み込み先のCMakeからは `add_subdirectory(...)` と
 `target_link_libraries(your_target PRIVATE MCAP::AdaptiveControl)` を使用できます。

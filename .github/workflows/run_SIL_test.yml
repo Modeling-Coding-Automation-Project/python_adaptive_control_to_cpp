@@ -26,6 +26,8 @@ jobs:
 
         sudo apt install -y build-essential
 
+        sudo apt install -y cmake
+
         sudo apt install -y python3
 
         sudo apt install -y python3-venv
@@ -64,3 +66,5 @@ jobs:
         ./external_libraries/MCAP_python_adaptive_control/tests -q
 
         '
+    - name: Compare C++ and Python sample workflows
+      run: '/opt/venv_py_MCAP/bin/python3 ./test_sil/test_samples.py'

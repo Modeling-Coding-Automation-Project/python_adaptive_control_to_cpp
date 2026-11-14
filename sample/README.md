@@ -1,125 +1,121 @@
-# VRFT／FRITのサンプルとC++生成
+# VRFT／FRITのC++サンプル
 
-手法ごとにPythonとC++のサンプルを分け、両言語で同じ設計ワークフローを示します。
+C++だけで設定・実験・調整・応答評価を実行します。
+Pythonのデモと同じ計算手順を示し、Pythonの事前実行やコード生成は必要ありません。
 
-| 手法 | Python設計・コード生成・表示 | 生成される設定 | C++実行例 |
-| --- | --- | --- | --- |
-| VRFT | `vrft_demo.py` | `../vrft_demo.hpp` | `vrft_demo.cpp` |
-| FRIT | `frit_demo.py` | `../frit_demo.hpp` | `frit_demo.cpp` |
-
-どちらも直接最小二乗法とPANOCを比較します。サンプリング周期は0.1秒、
-プラントは `G=0.2 z^-1/(1-0.8 z^-1)`、目標モデルは
-`M=0.3 z^-1/(1-0.7 z^-1)` です。調整関数にはプラントモデルを渡さず、
-記録した入出力と目標モデル、制御器基底だけを渡します。
+| 手法 | C++サンプル | 対応するPythonデモ |
+| --- | --- | --- |
+| VRFT | [data_driven/vrft_demo.cpp](data_driven/vrft_demo.cpp) | [vrft_demo.py](../external_libraries/MCAP_python_adaptive_control/sample/data_driven/vrft_demo.py) |
+| FRIT | [data_driven/frit_demo.cpp](data_driven/frit_demo.cpp) | [frit_demo.py](../external_libraries/MCAP_python_adaptive_control/sample/data_driven/frit_demo.py) |
 
 ## 設計ワークフロー
 
-1. Pythonの `create_design()` で、実験長、シミュレーション長、目標モデル、制御器基底、
-   初期係数、係数上下限、ソルバー設定を決めます。この問題に対応するC++の型と設定を生成します。
-2. 128サンプルの入力をプラントへ与え、入出力 `u, y` を収集します。
-   PythonとC++は、同じシードの信号とプラントの状態更新から、それぞれデータを作ります。
-3. 収集したデータで直接法と反復法を実行し、返された係数から制御器を構成します。
-   FRIT直接法では逆制御器を同定するため、伝達関数の逆を取ってから使用します。
-4. 初期制御器、直接法で調整した制御器、反復法で調整した制御器を、独立した零初期状態で
-   100サンプル実行します。各周期で参照値と測定出力から操作量を求め、プラントを更新します。
-5. Pythonは時系列をDashで表示し、C++は同じ信号をターミナルへ出力します。
+`create_design()` で問題を定義し、`run_demo(design)` で次の手順を実行します。
 
-シミュレーションのプラントは `y(k)=x(k)`、`x(k+1)=0.8*x(k)+0.2*u(k)` です。
-現在の出力から操作量を計算し、その後に状態を更新するので、入出力間に1サンプルの遅延があります。
-プラントの式はデモの実験・シミュレーションに使用し、調整アルゴリズムには渡しません。
+1. 初期PIのゲインを `Kp=0.7, Ki=1.0` に固定し、零初期状態から単位ステップの
+   閉ループ実験を128サンプル実行します。`r_ini, u_ini, y_ini` を記録し、実験中は調整しません。
+2. 記録済みの同じ `u_ini, y_ini` を使い、最小二乗法と上下限制約付きPANOCで
+   オフライン調整します。最適化の反復中にプラントの実験をやり直しません。
+3. 初期・直接法・反復法の制御器を構成します。FRIT直接法は逆制御器を同定するため、
+   伝達関数を反転してからフィードバック制御に使用します。
+4. 各制御器とプラントの状態をゼロに戻し、独立した閉ループで100サンプルの
+   単位ステップ応答を計算します。目標モデルの応答と各出力・操作量、追従RMSEを表示します。
 
-## 実行と表示
+サンプリング周期は0.1秒、目標モデルは `M(z)=0.3*z^-1/(1-0.7*z^-1)` です。
+シミュレーションのプラントは `y(k)=x(k)`、`x(k+1)=0.8*x(k)+0.2*u(k)` とし、
+現在の出力から操作量を計算してから状態を更新します。入出力間の遅延は1サンプルです。
+プラントの係数は実験と応答評価に使い、調整器には渡しません。
+実機を使う場合は、最初の実験ループを測定済みの入出力データに置き換えます。
+
+VRFTは `L=M` のフィルタを使い、`M u_ini` と `C(rho)(I-M)y_ini` の差を小さくします。
+FRITは記録データから `r_tilde=C(rho)^-1 u_ini+y_ini` を作り、
+`y_ini` と `M r_tilde` の差を小さくします。
+これらの評価と閉ループ応答の評価は別の段階として示しています。
+
+## C++だけでビルド・実行する
 
 リポジトリのルートで実行します。
 
 ```sh
-python -m pip install -r requirements.txt
-python sample/vrft_demo.py
-python sample/frit_demo.py
-```
-
-通常実行で `SimulationPlotterDash` を使用し、目標値・目標応答・各制御器の出力、
-各操作量、実験時の入出力を描画します。HTMLは実行時のカレントディレクトリの
-`cache/` に保存され、パスをコンソールへ表示してブラウザを開きます。
-ヘッドレス環境で画面が開かない場合は、そのHTMLをブラウザで開いてください。
-
-自動テストで表示だけを省く場合も、C++生成とシミュレーションは実行します。
-
-```sh
-python sample/vrft_demo.py --no-plot
-python sample/frit_demo.py --no-plot
-```
-
-## PythonからC++へ
-
-MPCリポジトリのdeployクラスと同様に、Pythonで定義した問題の構造と設定を
-`data_driven/data_driven_deploy.py` の `DataDrivenDeploy` でC++ヘッダへ変換します。
-importには `data_driven.data_driven_deploy` のように、リポジトリ内の階層を明示します。
-既定の生成先はリポジトリ直下で、実行時のカレントディレクトリには依存しません。
-別の出力先が必要な場合は `--output-dir` で指定できます。
-生成ヘッダには固定サイズの型、サンプル数、周期、実験信号のシード、シミュレーション用の
-プラント係数、目標モデル、制御器基底、オプション、初期係数・上下限、チューナー生成関数を含めます。
-生成は調整計算の前に行い、観測データ、調整済み係数、正解照合用の値は出力しません。
-データ収集と制御器の調整はC++サンプル自身が実行します。
-
-生成ヘッダはGitで追跡しないため、初回ビルドの前に上記のPythonサンプルを実行してください。
-
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+git submodule update --init --recursive
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++
 cmake --build build --parallel 2
 ./build/vrft_demo
 ./build/frit_demo
 ```
 
-C++は調整の状態・係数・評価関数値に加えて、実験と閉ループシミュレーションの時系列を
-CSV形式でターミナルへ出力し、最後は `return 0;` で終了します。C++からHTMLは生成しません。
+C++は設計の各段階を説明し、調整係数・状態・評価関数値・反復回数・RMSEを表示します。
+時系列もCSV形式でターミナルへ出力します。HTMLやプロットは生成しません。
 
 | 出力 | 列 |
 | --- | --- |
-| 実験データ | `experiment_time,experiment_input,experiment_output` |
+| 初期PIによる実験 | `experiment_time,experiment_reference,experiment_input,experiment_output` |
 | 閉ループ応答 | `time,reference,desired,y_initial,u_initial,y_direct,u_direct,y_iterative,u_iterative` |
 
-`initial` は初期制御器、`direct` は直接法、`iterative` はPANOCで調整した制御器です。
-サンプル内で正解と照合する代わりに、`test_sil/test_codegen.py` がPythonとC++の
-実験データ・調整結果・全時刻の出力と操作量を比較します。
+`initial` は初期制御器、`direct` は最小二乗法、`iterative` はPANOCで調整した制御器です。
+正常終了時は `return 0;` で終了します。
 
-`create_design()` の周期、実験長、基底の係数数・次数、目標モデル、上下限などを変更したら、
-Pythonを再実行してヘッダを生成し、C++をビルドし直してください。
-サンプルを含めずにC++の単体テストをビルドする場合は、
-`-DADAPTIVE_CONTROL_BUILD_SAMPLES=OFF` をCMakeへ指定します。
+## コード生成が不要な理由
+
+このデモのモデルと制御器基底は、既存の `RationalFilter` と `LinearControllerBasis`
+のコンストラクタで直接作れます。データ長・係数数・フィルタ容量も、C++のコンパイル時定数と
+テンプレート引数で指定できます。現在のデモは係数数2、フィルタ容量1のPI制御器です。
+Pythonで記号式を展開したり、C++では表現できない構造を導出したりする処理はありません。
+従来の生成処理はこれらの型と設定を書き出していたため、C++で同じ定義を記述すれば十分です。
+
+周期、初期ゲイン、目標モデル、上下限、ソルバー設定などはC++の `create_design()` で変更します。
+実験長やシミュレーション長、係数数・フィルタ容量を変更する場合は、対応するコンパイル時定数・
+型と係数配列のサイズを揃えてビルドし直します。Pythonによる再生成は不要です。
+両言語の一致性を確認する場合は、Python側も同じ設計条件に揃えてください。
+
+## Pythonの辞書とC++構造体
+
+設定、調整結果、各制御器、時系列を名前付きの構造体で保持します。
+`create_design()` と `run_demo()` の入出力を辿ると、Pythonデモの辞書と対応付けられます。
+
+| Pythonの辞書 | C++の型とメンバー |
+| --- | --- |
+| `design` | `Design`：周期、プラント係数、モデル、基底、初期係数、上下限、オプション |
+| `fits` | `Fits`：`direct`、`iterative` |
+| `controllers` | `Controllers`（`ControllerValues<Filter>`）：`initial`、`direct`、`iterative` |
+| `trajectories`、`controls` | `ControllerValues<Trace>`：各制御器の時系列 |
+| `controller_states`、`plant_states` | `ControllerValues<FilterState>`、`ControllerValues<Scalar>`：各ループの独立した状態 |
+| `run_demo()` の返す辞書 | `DemoResult`：設定、調整結果、制御器、記録データ、応答時系列をまとめて保持 |
+
+`Design::sample_count` と `Design::simulation_count` は、固定サイズ配列の長さに使う
+コンパイル時定数です。辞書の文字列キーは、C++では型の決まったメンバー名になります。
+
+ライブラリは失敗の種類を `Status` で返します。ライブラリ内部に例外送出やエラー表示は追加しません。
+デモ側が戻り値を確認し、継続できない場合に実行時エラーとして扱い、`main()` で表示します。
+
+## Python表示とSIL
+
+Python側の描画を確認する場合は、Python参照リポジトリのデモを直接実行します。
 
 ```sh
-python sample/vrft_demo.py --no-plot --check-generated
-python sample/frit_demo.py --no-plot --check-generated
+python -m pip install -r requirements.txt
+python external_libraries/MCAP_python_adaptive_control/sample/data_driven/vrft_demo.py
+python external_libraries/MCAP_python_adaptive_control/sample/data_driven/frit_demo.py
 ```
 
-`--check-generated` は現在のPython環境で生成した内容と保存済みヘッダを比較します。
-設定を変更した場合は、再生成してC++をビルドし直してください。
+Pythonは `SimulationPlotterDash` で「データ取得」「記録データを再利用するオフライン調整」
+「初期・調整後制御器の閉ループ評価」を別ページに表示します。描画不要の場合は `--no-plot` を付けます。
+本リポジトリのC++サンプルは、Pythonや `simulation_manager` を実行時に参照しません。
 
-本フォルダのPythonサンプルと
-`external_libraries/MCAP_python_adaptive_control/sample/data_driven/` の同名ファイルは
-バイト単位で同一です。それぞれのサンプルが自身のリポジトリを見つけ、ライブラリを
-読み込みます。他方のサンプルをimportしたり、実行したりしません。
-Python参照リポジトリだけで実行した場合は、設計・シミュレーション・表示を行います。
-本リポジトリで実行した場合には、C++のdeployモジュールを利用してコード生成も行います。
+数値の一致性は次のSILで確認します。
 
-## 係数の意味と実機への適用
+```sh
+python test_sil/test_samples.py
+```
+
+SILはC++サンプルをビルドし、対応するPythonデモの計算結果と、実験の参照値・入出力、
+調整係数、全時刻の閉ループ出力・操作量、RMSEを比較します。
+
+## 係数の意味
 
 このプラントと目標モデルでは、VRFTの両方式とFRIT反復版で `Kp=1.2, Ki=3.0` が目安になります。
-FRIT直接版は逆制御器
-`C^-1=(rho0+rho1 z^-1)/(1.5-1.2 z^-1)` の係数 `rho=[1,-1]` を求めます。
-通常の制御器へ戻すには、求めた伝達関数の逆を取ります。
+FRIT直接版は `C^-1=(rho0+rho1*z^-1)/(1.5-1.2*z^-1)` の係数を求めるので、
+`rho=[1,-1]` をPIゲインとして使わないでください。
 
-反復版の `tolerance=2e-5` は射影残差の停止条件です。係数そのものの誤差は
-基底の条件数などにも依存するため、必要な精度と応答を個別に確認してください。
-
-調整済み制御器は、状態を保持して1サンプルずつ実行します。
-
-```cpp
-// basisとfitは、サンプルで構成した制御器基底と調整結果です。
-auto controller = basis.controller(fit.parameters);
-auto state = controller.state();
-double control_input = 0.0;
-auto status = state.step(reference - measured_output, control_input);
-// stateを各周期で保持し、statusを確認してcontrol_inputを使用します。
-```
+反復版の `tolerance=2e-5` は射影残差の停止条件です。係数の誤差は基底の条件数にも依存するため、
+調整状態と閉ループ応答を確認します。
