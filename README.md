@@ -17,7 +17,7 @@ FRITの直接解法が返すのは逆制御器の係数です。通常のPIDゲ�
 - `data_driven/`: C++ライブラリ。Python版とフィルタ・最小二乗・最適化・VRFT・FRITの構造を対応させています。
 - `external_libraries/MCAP_python_adaptive_control/`: NumPy参照実装、Pythonテスト、サンプル。
 - `test_vs/`: MCAP_testerによるGCC単体テスト。Visual Studioプロジェクトは使用しません。
-- `test_sil/`: 同一データによるPython/C++一致性検証。
+- `test_sil/frit/`、`test_sil/vrft/`: サンプルの手順に沿ってPython/C++のライブラリAPIを比較するSIL。
 - `sample/data_driven/`: C++だけで実行するVRFT／FRIT別のPI調整例。
 - `.github/`: GitHub ActionsとDependabot。
 
@@ -42,16 +42,20 @@ C++は実験データ、調整状態・係数、各時刻の参照値・目標�
 追従RMSEをターミナルへ表示します。
 Pythonの辞書に対応する設定・結果はC++の構造体で保持します。
 
-Python参照実装とのSILを実行する場合は、Python 3.10以降と依存パッケージを追加します。
+Python参照実装とのSILには、Python 3.10以降と開発用ヘッダ、CMake 3.18以降、
+pybind11などの依存パッケージを使用します。Ubuntuでは `python3-dev` を導入してください。
 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m pytest external_libraries/MCAP_python_adaptive_control/tests -q
-python test_sil/test_data_driven_sil.py --executable build/data_driven_sil
-python test_sil/test_samples.py
+python test_sil/vrft/vrft_demo_SIL.py
+python test_sil/frit/frit_demo_SIL.py
 ```
+
+各SILは対応するC++ラッパーをビルドして読み込み、データ収集・オフライン調整・
+閉ループ評価の各段階でPython/C++の戻り値を比較します。ビルド生成物は一時フォルダへ置きます。
 
 対応するPythonデモは `external_libraries/MCAP_python_adaptive_control/sample/data_driven/`
 にあります。Python側は `SimulationPlotterDash` で描画し、C++側はプロットを行いません。

@@ -3,7 +3,7 @@
 作成日：2026-11-07、構成更新日：2026-11-14
 
 本レポートは、既存数学・QRライブラリの利用、ヘッダ改名、および
-Python参照デモと同じ手順をC++だけで実行するサンプルの構成を反映しています。
+Python参照デモと同じ手順をC++だけで実行するサンプル、およびサンプルごとのSIL構成を反映しています。
 過去のコード生成を使った構成の検証結果は、当時の記録として区別しています。
 
 ## 実装範囲
@@ -36,7 +36,8 @@ FRIT直接版は書籍§4.5.1の逆線形パラメータ化を用いた厳密な
   `data_driven_least_squares.hpp`、`data_driven_optimization.hpp`、
   `data_driven_vrft.hpp`、`data_driven_frit.hpp`、統合ヘッダ `data_driven.hpp`。
 - `test_vs/`：`MCAP_tester` とGCCで実行する単体テスト。Visual Studioプロジェクトは作成していません。
-- `test_sil/`：C++が出力する数値をPythonで比較するSIL。pybind11を必要としません。
+- `test_sil/frit/`、`test_sil/vrft/`：サンプルごとのPythonテストとC++のpybind11ラッパー。
+  設計ワークフローの各段階で両言語のライブラリAPIの戻り値を比較します。
 - `sample/data_driven/`：VRFTとFRITに分けたC++例。設定・実験・調整・評価をC++だけで実行します。
 - `external_libraries/MCAP_python_adaptive_control/sample/data_driven/`：対応するPythonデモ。
 - `sample/simulation_manager/`：既存のシミュレーション支援サブモジュール。C++デモでは使用しません。
@@ -158,13 +159,57 @@ C++は3段階の説明、調整状態・係数・評価関数値・RMSEに加え
 プロットは行いません。Python側は `SimulationPlotterDash` で、実験・オフライン調整・
 閉ループ評価を別ページに表示します。
 
-一致性検証は `test_sil/test_samples.py` が担当し、C++の実験・調整・応答評価の結果を
-実際のPythonデモの計算結果と比較します。旧コード生成統合テストから役割を変更しました。
+一致性検証は `test_sil/frit/frit_demo_SIL.py` と `test_sil/vrft/vrft_demo_SIL.py` が担当します。
+それぞれのサンプルと同じ設定・計算手順を使い、PythonテストからPython実装と
+pybind11で公開したC++実装を呼び出して、各段階の戻り値を比較します。
 実行手順とデータ構造の対応は [サンプル説明](../sample/README.md) に記載しています。
+
+### サンプルごとのSIL構成
+
+`external_libraries/python_control_to_cpp/test_sil` と同じく、機能ごとのフォルダに
+Pythonの検証コードとC++のバインディングを置きます。
+
+| ファイル | 役割 |
+| --- | --- |
+| `test_sil/frit/frit_demo_SIL.py`、`frit_SIL.cpp` | FRIT直接版・反復版の設計ワークフローを比較 |
+| `test_sil/vrft/vrft_demo_SIL.py`、`vrft_SIL.cpp` | VRFT直接版・反復版の設計ワークフローを比較 |
+| `test_sil/SIL_operator.py` | CMakeで各C++ラッパーをビルドし、Pythonモジュールとして読み込む |
+| `test_sil/data_driven_SIL.hpp` | NumPy配列の変換とフィルタ・基底・設定・結果型の共通バインディング |
+| `test_sil/SIL_test_utils.py` | MCAPTesterによる比較、設定の受け渡し、追加検証用のデータ |
+
+各テストは、初期PIの閉ループ実験128点、同じ記録を使った最小二乗法とPANOC、
+制御器の構築、零初期状態からの閉ループ評価100点の順に実行します。
+FRIT直接版では、逆制御器の同定結果から順制御器への変換も検証します。
+フィルタの状態をPythonとC++で別々に保持し、各時刻の出力・操作量を比較します。
+調整係数、状態、ランク、目的関数値、回帰行列、オフライン信号も照合します。
+既存の完全一致可能なデータ、雑音・正則化・先頭除外、2サンプル遅延の3ケースを
+各手法へ移し、FRITの解析勾配も比較します。
+
+旧 `test_samples.py`、`test_data_driven_sil.py`、`data_driven_sil.cpp` は削除しました。
+SILはターミナルのCSVやJSONを解析せず、ライブラリの呼び出し結果を直接検証します。
+CMake設定と共有ライブラリは一時ディレクトリに生成してテスト終了時に削除します。
+コントローラのコード生成や、既存サンプルの実行は必要ありません。
+
+バインディングは今回のデモ用にdouble、係数数2、フィルタ容量2、記録長128／256点を
+対象とします。容量1のサンプルの係数には末尾ゼロを補います。
+配列の形状や失敗状態を例外へ変換するのはSILラッパーの責務です。
+ライブラリ本体、サンプル、サブモジュールは今回の構成変更では修正していません。
 
 ## 検証結果
 
-2026-11-14のC++単独サンプルについて、ローカルで次を確認しました。
+2026-11-14のSIL構成変更後、ローカルで次を確認しました。
+
+- FRIT、VRFTそれぞれのSILが、サンプルの設計ワークフローと追加3ケースの全4ケースで成功しました。
+  VRFTはリポジトリ外のカレントディレクトリからも実行しました。
+- GCC 15.2.0、C++11のReleaseビルドとCTestが3/3成功しました。
+- Python参照実装の単体テストが36/36成功しました。
+- 比較処理が許容値を超える誤差、形状不一致、非有限値を失敗として検出しました。
+- 両C++モジュールを同じPythonプロセスで読み込めることと、零データの最小二乗法が
+  `rank_deficient` の結果を返すことを確認しました。
+- `run_SIL_test.yml` の実行対象を両手法のPythonファイルへ分離しました。
+  YAML・シェル構文と `git diff --check` を確認しました。GitHub上での再実行は未実施です。
+
+以下は同日のC++単独サンプルへの移行直後、SIL構成変更前に確認した記録です。
 
 - GCC 15.2.0、C++11、`-Wall -Wextra -Wpedantic -Werror` のReleaseビルドと
   CTestが3/3成功しました。ASan/UBSan付きDebugビルドのCTestも3/3成功しました。
@@ -184,7 +229,8 @@ C++は3段階の説明、調整状態・係数・評価関数値・RMSEに加え
 RMSEの表示にはスケーリングした `PythonMath::sqrt` を使用します。
 FRIT反復版の表示値と時系列からNumPyで計算したRMSEとの差は約 `2.74e-13`
 （相対約 `6.35e-8`）でした。依存実装のNewton近似精度を考慮し、表示値とその時系列の
-照合には相対許容値 `1e-6`、絶対許容値 `1e-13` を使用します。
+照合には相対許容値 `1e-6`、絶対許容値 `1e-13` を使用しました。
+現在のSILでは表示値を解析せず、両言語の時系列を比較し、その時系列から計算したRMSEを照合します。
 
 以下の2026-11-08以前の記録は、コード生成を使用していた旧構成での検証結果です。
 現行のC++単独サンプルに対する検証結果とは区別します。
@@ -256,7 +302,8 @@ GCCの直接実行、`/opt/venv_py_MCAP` の明示的な利用を参照先に揃
 SILジョブはUbuntuランナーに用意された `python3` から仮想環境を作ってテストし、
 Pythonバージョンのマトリクスと `actions/setup-python` は使用しません。
 システムのPython環境へ直接pipでインストールせず、同じバージョンの仮想環境を使用します。
-SILはJSONによるプロセス間通信を使うため、参照先のSILで使われるpybind11は不要です。
+SILはpybind11を使ってC++ライブラリを呼び出します。
+`requirements.txt` からpybind11を導入し、aptで `python3-dev` とCMakeを導入します。
 DependabotはActions、サブモジュール、Python依存を更新対象にします。
 
 他のMCAPリポジトリと同じ標準の `actions/checkout` を使用します。
@@ -280,8 +327,8 @@ URLの誤記ではなく、公開状態の違いが最初のcheckout失敗の原
 C++に必要な公開サブモジュール6件だけを非再帰で取得します。
 このジョブはPython参照ライブラリやコード生成を必要としません。
 `Run samples` もC++だけでビルド・実行します。
-`Run SIL test` では `test_sil/test_samples.py` が、実験データ・調整結果・全時刻の応答と
-操作量・RMSEをPythonデモと照合します。
+`Run SIL test` では `test_sil/vrft/vrft_demo_SIL.py` と `test_sil/frit/frit_demo_SIL.py` を
+それぞれ実行し、サンプルと同じ設計手順でPython／C++のライブラリを比較します。
 
 ### PID反復解テストの収束条件
 

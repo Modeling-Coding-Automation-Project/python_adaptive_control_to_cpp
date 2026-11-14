@@ -105,11 +105,20 @@ Pythonは `SimulationPlotterDash` で「データ取得」「記録データを�
 数値の一致性は次のSILで確認します。
 
 ```sh
-python test_sil/test_samples.py
+python test_sil/vrft/vrft_demo_SIL.py
+python test_sil/frit/frit_demo_SIL.py
 ```
 
-SILはC++サンプルをビルドし、対応するPythonデモの計算結果と、実験の参照値・入出力、
-調整係数、全時刻の閉ループ出力・操作量、RMSEを比較します。
+`python_control_to_cpp/test_sil` と同じく、手法ごとのPythonテストとC++ラッパーを
+同じフォルダへ置いています。共通の `SIL_operator.py` がラッパーをpybind11モジュールとして
+ビルドし、PythonのテストからC++ライブラリの処理を直接呼び出します。
+Pythonの開発用ヘッダとCMake 3.18以降も必要です。
+
+各SILではサンプルと同じ設定を使い、初期PIでのデータ収集、同じ記録を使った調整、
+独立した閉ループ評価を順に実行します。制御器の逐次更新、調整係数・評価値、
+オフラインのフィルタ信号、各時刻の出力・操作量、RMSEを `MCAPTester` で比較します。
+雑音・正則化・先頭データ除外・2サンプル遅延を含む追加ケースも各手法のファイルにあります。
+検証のためのCSV解析やサンプル実行ファイルは不要で、C++サンプルのビルド手順は変わりません。
 
 ## 係数の意味
 

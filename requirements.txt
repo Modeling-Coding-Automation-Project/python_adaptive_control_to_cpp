@@ -1,3 +1,4 @@
 numpy>=1.24
 pytest>=7
 plotly>=5.18
+pybind11>=3.0

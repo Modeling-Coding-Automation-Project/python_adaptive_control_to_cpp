@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(python_adaptive_control_to_cpp VERSION 0.1.0 LANGUAGES CXX)
 
-option(ADAPTIVE_CONTROL_BUILD_TESTS "Build unit tests and SIL executable" ON)
+option(ADAPTIVE_CONTROL_BUILD_TESTS "Build C++ unit tests" ON)
 option(ADAPTIVE_CONTROL_BUILD_SAMPLES "Build VRFT and FRIT examples" ON)
 option(ADAPTIVE_CONTROL_SANITIZERS "Enable address/undefined sanitizers" OFF)
 
@@ -41,7 +41,6 @@ if(ADAPTIVE_CONTROL_BUILD_TESTS)
     target_include_directories(data_driven_unit_tests SYSTEM PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/test_vs/MCAP_tester/include)
     add_test(NAME data_driven_unit_tests COMMAND data_driven_unit_tests)
-    adaptive_control_executable(data_driven_sil test_sil/data_driven_sil.cpp)
 endif()
 
 if(ADAPTIVE_CONTROL_BUILD_SAMPLES)
